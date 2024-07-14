@@ -1,21 +1,26 @@
 package backend.app.premier_chat.security;
 
+import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.JwtUsefulClaims;
+import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.*;
+import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.RevokedTokenRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.*;
-import io.jsonwebtoken.security.SecurityException;
 import org.apache.commons.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpCookie;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -42,6 +47,9 @@ public class JwtUtils {
 
     @Autowired
     private RevokedTokenRepository revokedTokenRepository;
+
+    @Autowired
+    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
 
     @Value("${spring.configuration.jwt.claims.iss}")
     private String jwtIssuer;
@@ -102,9 +110,9 @@ public class JwtUtils {
             Jwts.parser().verifyWith(generateSecretKey(jwtConfiguration.getSecret())).build();
         } catch (ExpiredJwtException e) {
             if (ignoreExpiration) throw e;
-            throw new UnauthorizedException("Invalid access token");
+            throw new UnauthorizedException("Invalid JWT token");
         } catch (Exception e) {
-            throw new UnauthorizedException("Invalid access token");
+            throw new UnauthorizedException("Invalid JWT token");
         }
     }
 
@@ -119,6 +127,41 @@ public class JwtUtils {
                 UUID.fromString((String) payload.get("jti")),
                 (boolean) payload.get("restore")
         );
+
+    }
+
+
+    public JwtUsefulClaims extractJwtUsefulClaims(ServerHttpRequest req) throws UnauthorizedException {
+
+        switch (authorizationStrategyConfiguration.getStrategy()) {
+            case COOKIE -> {
+                Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+                TokenPair tokenPair = new TokenPair(cookies.get("__access_token").getValue(),
+                        cookies.get("__refresh_token").getValue(), TokenPairType.HTTP);
+                JwtUsefulClaims jwtUsefulClaims;
+                try {
+                    jwtUsefulClaims = extractJwtUsefulClaims(tokenPair.getAccessToken(), TokenType.ACCESS_TOKEN, true);
+                } catch (ExpiredJwtException e) {
+                    jwtUsefulClaims = extractJwtUsefulClaims(tokenPair.getRefreshToken(), TokenType.REFRESH_TOKEN, false);
+                }
+                return jwtUsefulClaims;
+            }
+            case HEADER -> {
+                String autorizationHeader = req.getHeaders().getFirst("Authorization");
+                if (autorizationHeader == null) throw new UnauthorizedException("No provided access token");
+                if (!autorizationHeader.startsWith("Bearer "))
+                    throw new UnauthorizedException("Malformed Authorization header");
+                String accessToken = autorizationHeader.split(" ")[1];
+                JwtUsefulClaims jwtUsefulClaims;
+                try {
+                    jwtUsefulClaims = extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true);
+                } catch (ExpiredJwtException e) {
+                    throw new UnauthorizedException("Expired access token: " + e.getMessage());
+                }
+                return jwtUsefulClaims;
+            }
+            default -> throw new UnauthorizedException();
+        }
 
     }
 

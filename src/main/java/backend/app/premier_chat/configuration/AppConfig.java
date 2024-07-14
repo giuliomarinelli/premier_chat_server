@@ -1,5 +1,6 @@
 package backend.app.premier_chat.configuration;
 
+import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -65,6 +66,11 @@ public class AppConfig {
             @Value("${spring.configuration.jwt.expiration.activationToken}") String expiration
     ) {
         return new ActivationTokenConfiguration(secret, Long.parseLong(expiration));
+    }
+
+    @Bean
+    AuthorizationStrategyConfiguration authorizationConfig(@Value("${spring.security.strategy}") String strategy) {
+        return new AuthorizationStrategyConfiguration(strategy);
     }
 
     @Bean

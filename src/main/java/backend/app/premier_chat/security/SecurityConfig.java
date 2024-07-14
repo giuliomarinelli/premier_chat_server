@@ -12,10 +12,6 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    @Bean
-    AuthorizationStrategyConfiguration authorizationConfig(@Value("${spring.security.strategy}") String strategy) {
-        return new AuthorizationStrategyConfiguration(strategy);
-    }
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
