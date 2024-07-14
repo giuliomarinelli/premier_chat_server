@@ -1,6 +1,7 @@
 package backend.app.premier_chat.Models.entities;
 
 import backend.app.premier_chat.Models.enums.UserRole;
+import backend.app.premier_chat.Models.enums._2FAStrategy;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -22,6 +23,7 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "user_created_at_idx", columnList = "createdAt"),
                 @Index(name = "user_enabled_idx", columnList = "enabled"),
+                @Index(name = "user_locked_idx", columnList = "locked")
         }
 )
 @NoArgsConstructor
@@ -36,9 +38,18 @@ public class User implements UserDetails {
     @Column(columnDefinition = "VARCHAR(30)", unique = true)
     private String username;
 
+    @Column(unique = true)
+    private String email;
+
+    @JsonIgnore
     private String hashedPassword;
 
     private long createdAt;
+
+    private List<_2FAStrategy> _2FAStrategies = new ArrayList<>(); // Strategie di 2FA attive e disponibili all'uso
+
+    @JsonIgnore
+    private String totpSecret;
 
     @JsonIgnore
     private long mustActivateInto;
@@ -46,14 +57,20 @@ public class User implements UserDetails {
     @JsonIgnore
     private boolean enabled;
 
+    @JsonIgnore
+    private boolean locked;
+
     private List<UserRole> roles = new ArrayList<>();
 
-    public User(String username, String hashedPassword, long msForActivation) {
+    public User(String username, String email, String hashedPassword, String totpSecret, long msForActivation) {
         this.username = username;
         this.hashedPassword = hashedPassword;
+        this.email = email;
+        this.totpSecret = totpSecret;
         createdAt = System.currentTimeMillis();
         mustActivateInto = createdAt + msForActivation;
         enabled = false;
+        locked = false;
         roles.add(UserRole.USER);
     }
 
@@ -73,7 +90,7 @@ public class User implements UserDetails {
     @Transient
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !locked;
     }
 
     @Transient
