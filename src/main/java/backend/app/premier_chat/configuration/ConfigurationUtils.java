@@ -22,11 +22,11 @@ public class ConfigurationUtils {
         switch (encodeType) {
             case BASE_32 -> {
                 Base32 base32 = new Base32();
-                 encodedString = base32.encodeToString(key);
+                encodedString = base32.encodeToString(key);
             }
             case BASE_64 -> {
                 Base64 base64 = new Base64();
-                 encodedString = base64.encodeToString(key);
+                encodedString = base64.encodeToString(key);
             }
             case HEX -> encodedString = Hex.encodeHexString(key);
         }
