@@ -14,9 +14,9 @@ public class AuthorizationStrategyConfiguration {
         try {
             this.strategy = AuthorizationStrategy.valueOf(strategy);
         } catch (IllegalArgumentException e) {
-            this.strategy = AuthorizationStrategy.HEADER; // Valore di default se non specificato o in caso di errore
+            this.strategy = AuthorizationStrategy.HEADER; // Valore di default se non specificato o in caso di mancato fit
         } finally {
-            log.info("Authorization Strategy: " + this.strategy);
+            log.info("Authorization Strategy: {}", this.strategy);
         }
     }
 }
