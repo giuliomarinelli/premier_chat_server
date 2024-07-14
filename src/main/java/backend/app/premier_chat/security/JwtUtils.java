@@ -5,10 +5,7 @@ import backend.app.premier_chat.Models.configuration.jwt_configuration.*;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.RevokedTokenRepository;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.*;
 import io.jsonwebtoken.security.SecurityException;
 import org.apache.commons.codec.binary.Base64;
@@ -111,11 +108,18 @@ public class JwtUtils {
         }
     }
 
-    public JwtUsefulClaims extractJwtUsefulClaims(String token, TokenType type, boolean ignoreExpiration) throws Exception {
+    public JwtUsefulClaims extractJwtUsefulClaims(String token, TokenType type, boolean ignoreExpiration) throws UnauthorizedException {
 
         verifyTokenWithExceptions(token, type, ignoreExpiration);
 
-        Object payload = Jwts.parser().build().parseSignedClaims(token).getPayload();
+        Claims payload = Jwts.parser().build().parseSignedClaims(token).getPayload();
+
+        return new JwtUsefulClaims(
+                UUID.fromString(payload.getSubject()),
+                UUID.fromString((String) payload.get("jti")),
+                (boolean) payload.get("restore")
+        );
+
     }
 
 }
