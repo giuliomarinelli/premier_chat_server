@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TokenPair {
 
-    String accessToken;
-    String refreshToken;
-    TokenPairType type;
+    private String accessToken;
+    private String refreshToken;
+    private TokenPairType type;
 
 }
