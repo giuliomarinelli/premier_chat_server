@@ -4,6 +4,7 @@ import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfig
 import backend.app.premier_chat.Models.configuration.JwtUsefulClaims;
 import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.*;
+import backend.app.premier_chat.Models.entities.RevokedToken;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
@@ -84,6 +85,7 @@ public class JwtUtils {
                 .issuer(jwtIssuer)
                 .claim("jti", UUID.randomUUID().toString())
                 .claim("restore", restore)
+                .claim("typ", type.name())
                 .signWith(generateSecretKey(jwtConfiguration.getSecret()), Jwts.SIG.HS256)
                 .compact();
 
@@ -95,7 +97,7 @@ public class JwtUtils {
 
         try {
             Jwts.parser().verifyWith(generateSecretKey(jwtConfiguration.getSecret())).build();
-            return true;
+            return !isRevokedToken(token);
         } catch (Exception e) {
             return false;
         }
@@ -108,6 +110,7 @@ public class JwtUtils {
 
         try {
             Jwts.parser().verifyWith(generateSecretKey(jwtConfiguration.getSecret())).build();
+            if (isRevokedToken(token)) throw new UnauthorizedException("Invalid JWT token");
         } catch (ExpiredJwtException e) {
             if (ignoreExpiration) throw e;
             throw new UnauthorizedException("Invalid JWT token");
@@ -125,11 +128,11 @@ public class JwtUtils {
         return new JwtUsefulClaims(
                 UUID.fromString(payload.getSubject()),
                 UUID.fromString((String) payload.get("jti")),
-                (boolean) payload.get("restore")
+                (boolean) payload.get("restore"),
+                TokenType.valueOf((String) payload.get("typ")) //... IllegalArgumentException
         );
 
     }
-
 
     public JwtUsefulClaims extractJwtUsefulClaims(ServerHttpRequest req) throws UnauthorizedException {
 
@@ -163,6 +166,55 @@ public class JwtUtils {
             default -> throw new UnauthorizedException();
         }
 
+    }
+
+    public void revokeToken(String token) {
+        TokenType type;
+        UUID jti;
+        try {
+            Claims payload = Jwts.parser().build().parseSignedClaims(token).getPayload();
+            type = TokenType.valueOf((String) payload.get("typ"));
+            jti = UUID.fromString((String) payload.get("jti"));
+        } catch (IllegalArgumentException e) {
+            type = null;
+            jti = null;
+        }
+
+//        if (jti == null) throw new SomeException..()
+
+        revokedTokenRepository.save(new RevokedToken(jti, token, type));
+
+    }
+
+    public boolean isRevokedToken(String token) {
+        // Gestire IllegalArgumentException o assenza del claim
+        UUID jti = UUID.fromString((String) Jwts.parser().build().parseSignedClaims(token).getPayload().get("jti"));
+        return revokedTokenRepository.findByJti(jti).isPresent();
+    }
+
+
+    public TokenPair refreshTokenPair(String refreshToken, TokenPairType type) throws UnauthorizedException {
+        switch (type) {
+            case HTTP -> {
+                JwtUsefulClaims payload = extractJwtUsefulClaims(refreshToken, TokenType.REFRESH_TOKEN, false);
+                revokeToken(refreshToken);
+                return new TokenPair(
+                        generateToken(payload.getSub(), TokenType.ACCESS_TOKEN, payload.isRestore()),
+                        generateToken(payload.getSub(), TokenType.REFRESH_TOKEN, payload.isRestore()),
+                        type
+                );
+            }
+            case WS -> {
+                JwtUsefulClaims payload = extractJwtUsefulClaims(refreshToken, TokenType.WS_REFRESH_TOKEN, false);
+                revokeToken(refreshToken);
+                return new TokenPair(
+                        generateToken(payload.getSub(), TokenType.WS_ACCESS_TOKEN, payload.isRestore()),
+                        generateToken(payload.getSub(), TokenType.WS_REFRESH_TOKEN, payload.isRestore()),
+                        type
+                );
+            }
+            default -> throw new UnauthorizedException();
+        }
     }
 
 }

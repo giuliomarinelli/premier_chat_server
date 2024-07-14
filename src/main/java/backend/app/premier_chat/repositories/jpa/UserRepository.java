@@ -35,7 +35,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u WHERE u.username = :username AND (u.enabled = true OR u.mustActivateInto > :now)")
     public Optional<User> findValidUserByUsernameAndNow(String username, long now);
 
-    public default Optional<User> findValidUserByUsernameAndNow(String username) {
+    public default Optional<User> findValidUserByUsername(String username) {
         return findValidUserByUsernameAndNow(username, System.currentTimeMillis());
     }
 
@@ -54,7 +54,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u WHERE u.email = :email AND (u.enabled = true OR u.mustActivateInto > :now)")
     public Optional<User> findValidUserByEmailAndNow(String email, long now);
 
-    public default Optional<User> findValidUserByEmailAndNow(String email) {
+    public default Optional<User> findValidUserByEmail(String email) {
         return findValidUserByEmailAndNow(email, System.currentTimeMillis());
     }
 

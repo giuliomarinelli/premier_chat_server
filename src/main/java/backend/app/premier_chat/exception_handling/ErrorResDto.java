@@ -1,24 +1,23 @@
-package backend.app.premier_chat.Models.Dto.outputDto;
+package backend.app.premier_chat.exception_handling;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 @Data
-@NoArgsConstructor
-public class ConfirmOutputDto {
+public class ErrorResDto {
 
-    private int statusCode;
+    private int status;
     private Timestamp timestamp;
+    private String error;
     private String message;
 
-    public ConfirmOutputDto(String message, HttpStatus httpStatus) {
+    public ErrorResDto(HttpStatus status, String error, String message) {
+        this.status = status.value();
+        this.error = error;
         this.message = message;
-        this.statusCode = httpStatus.value();
         timestamp = Timestamp.valueOf(LocalDateTime.now());
     }
-
 }

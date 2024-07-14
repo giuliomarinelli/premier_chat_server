@@ -27,6 +27,7 @@ public class RevokedToken {
     @Column(length = 10000)
     private String token;
 
+    @Enumerated(EnumType.STRING)
     private TokenType type;
 
     public RevokedToken(UUID jti, String token, TokenType type) {

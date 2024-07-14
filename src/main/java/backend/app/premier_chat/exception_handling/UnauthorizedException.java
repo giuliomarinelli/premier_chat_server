@@ -1,6 +1,6 @@
 package backend.app.premier_chat.exception_handling;
 
-public class UnauthorizedException extends Exception {
+public class UnauthorizedException extends RuntimeException {
 
     public UnauthorizedException() {}
 
