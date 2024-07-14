@@ -1,4 +1,4 @@
-package backend.app.premier_chat.Models.configuration;
+package backend.app.premier_chat.Models.enums;
 
 public enum AuthorizationStrategy {
     COOKIE, HEADER
