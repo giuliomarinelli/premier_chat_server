@@ -1,8 +1,8 @@
 package backend.app.premier_chat.Models.configuration;
 
+import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import lombok.Data;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Value;
 
 @Data
 @Log4j2
