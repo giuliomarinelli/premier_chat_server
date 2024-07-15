@@ -3,6 +3,7 @@ package backend.app.premier_chat.services;
 import backend.app.premier_chat.Models.Dto.inputDto.UserPostInputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmRegistrationOutputDto;
+import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.JwtUsefulClaims;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.ActivationTokenConfiguration;
 import backend.app.premier_chat.Models.entities.User;
@@ -19,6 +20,8 @@ import backend.app.premier_chat.security.SecurityUtils;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -49,6 +52,9 @@ public class AuthService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+
     public Mono<ConfirmRegistrationOutputDto> register(UserPostInputDto userPostInputDto) throws BadRequestException, InternalServerErrorException {
 
         return Mono.fromCallable(() -> {
@@ -68,7 +74,8 @@ public class AuthService {
                 notificationService.sendEmail(
                         user.getEmail(),
                         "Registration to PremierChat",
-                        "Welcome " + user.getUsername() + ".\\nThis is your activation token:\\n" + activationToken
+                        "Welcome " + user.getUsername() + "\n\nThis is your activation token:\n\n" +
+                                activationToken
                 );
             } catch (DataIntegrityViolationException e) {
                 if (userRepository.findValidUserByUsername(userPostInputDto.username()).isPresent())
@@ -88,23 +95,28 @@ public class AuthService {
 
     }
 
-    public ConfirmOutputDto activateUser(String activationToken) throws BadRequestException, NotFoundException {
+    public Mono<ConfirmOutputDto> activateUser(String activationToken) throws BadRequestException, NotFoundException {
 
-        try {
-            JwtUsefulClaims claims = jwtUtils.extractJwtUsefulClaims(activationToken, TokenType.ACTIVATION_TOKEN, false);
-            User user = userRepository.findValidUserById(claims.getSub()).orElseThrow(
-                    () -> new NotFoundException("User not found")
-            );
-            user.setEnabled(true);
-            user.setUpdatedAt(System.currentTimeMillis());
-            userRepository.save(user);
-            return new ConfirmOutputDto("Account activated successfully", HttpStatus.OK);
-        } catch (ExpiredJwtException e) {
-            throw new BadRequestException("Time for account activation is over, please register again");
-        } catch (UnauthorizedException e) {
-            throw new NotFoundException("User not found");
-        }
+        return Mono.fromCallable(() -> {
+            try {
+                JwtUsefulClaims claims = jwtUtils.extractJwtUsefulClaims(activationToken, TokenType.ACTIVATION_TOKEN, true);
+                User user = userRepository.findValidUserById(claims.getSub()).orElseThrow(
+                        () -> new NotFoundException("User not found")
+                );
+                user.setEnabled(true);
+                user.setUpdatedAt(System.currentTimeMillis());
+                userRepository.save(user);
+                jwtUtils.revokeToken(activationToken, TokenType.ACTIVATION_TOKEN);
+                return new ConfirmOutputDto("Account activated successfully", HttpStatus.OK);
+            } catch (ExpiredJwtException e) {
+                throw new BadRequestException("Time for account activation is over, please register again");
+            } catch (UnauthorizedException e) {
+                throw new NotFoundException("User not found");
+            }
+        });
 
     }
+
+
 
 }

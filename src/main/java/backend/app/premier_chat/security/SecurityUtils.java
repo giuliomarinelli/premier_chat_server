@@ -10,7 +10,7 @@ public class SecurityUtils {
         int i = email.indexOf("@");
         // Gestire l'eccezione nel caso in cui i = -1
         String visible = email.substring(i - 2, i);
-        return "*".repeat(i -1) + visible + email.substring(i);
+        return "*".repeat(i - 3) + visible + email.substring(i);
 
     }
 

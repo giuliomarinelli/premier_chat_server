@@ -9,8 +9,13 @@ import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.RevokedTokenRepository;
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.*;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,14 +23,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
 @Component
 @Configuration
+@Log4j2
 public class JwtUtils {
 
     @Autowired
@@ -55,9 +59,8 @@ public class JwtUtils {
     @Value("${spring.configuration.jwt.claims.iss}")
     private String jwtIssuer;
 
-    private SecretKey generateSecretKey(String base64Secret) {
-        byte[] keyBytes = Base64.decodeBase64(base64Secret);
-        return Keys.hmacShaKeyFor(keyBytes);
+    private byte[] generateSecretKeyBytes(String base64Secret) {
+        return Base64.decodeBase64(base64Secret);
     }
 
     private JwtConfiguration getJwtConfigurationFromTokenType(TokenType type) throws UnauthorizedException {
@@ -78,60 +81,81 @@ public class JwtUtils {
 
         JwtConfiguration jwtConfiguration = getJwtConfigurationFromTokenType(type);
 
-        return Jwts.builder()
-                .subject(userId.toString())
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + jwtConfiguration.getExpiresIn()))
-                .issuer(jwtIssuer)
-                .claim("jti", UUID.randomUUID().toString())
-                .claim("restore", restore)
-                .claim("typ", type.name())
-                .signWith(generateSecretKey(jwtConfiguration.getSecret()), Jwts.SIG.HS256)
-                .compact();
+        log.info("generateToken => jwtConfiguration = {}", jwtConfiguration);
+
+        Algorithm algorithm = Algorithm.HMAC256(generateSecretKeyBytes(jwtConfiguration.getSecret()));
+        return JWT.create()
+                .withIssuer(jwtIssuer)
+                .withSubject(userId.toString())
+                .withJWTId(UUID.randomUUID().toString())
+                .withClaim("typ", type.name())
+                .withClaim("restore", restore)
+                .withIssuedAt(new Date(System.currentTimeMillis()))
+                .withExpiresAt(new Date(System.currentTimeMillis() + jwtConfiguration.getExpiresIn()))
+                .sign(algorithm);
 
     }
 
-    public boolean verifyTokenWithoutExceptions(String token, TokenType type) throws UnauthorizedException {
+    public boolean verifyToken(String token, TokenType type, boolean ignoreExpiration) throws UnauthorizedException {
 
         JwtConfiguration jwtConfiguration = getJwtConfigurationFromTokenType(type);
-
         try {
-            Jwts.parser().verifyWith(generateSecretKey(jwtConfiguration.getSecret())).build();
-            return !isRevokedToken(token);
-        } catch (Exception e) {
-            return false;
+            Algorithm algorithm = Algorithm.HMAC256(generateSecretKeyBytes(jwtConfiguration.getSecret()));
+            JWTVerifier verifier = JWT.require(algorithm)
+                    .withIssuer(jwtIssuer)
+                    .withClaim("typ", type.name())
+                    .build();
+
+            verifier.verify(token);
+            return !isRevokedToken(token, type);
+        } catch (JWTVerificationException e) {
+            return e instanceof TokenExpiredException && ignoreExpiration;
         }
 
     }
 
-    public void verifyTokenWithExceptions(String token, TokenType type, boolean ignoreExpiration) throws UnauthorizedException {
-
-        JwtConfiguration jwtConfiguration = getJwtConfigurationFromTokenType(type);
-
-        try {
-            Jwts.parser().verifyWith(generateSecretKey(jwtConfiguration.getSecret())).build();
-            if (isRevokedToken(token)) throw new UnauthorizedException("Invalid JWT token");
-        } catch (ExpiredJwtException e) {
-            if (ignoreExpiration) throw e;
-            throw new UnauthorizedException("Invalid JWT token");
-        } catch (Exception e) {
-            throw new UnauthorizedException("Invalid JWT token");
-        }
-    }
 
     public JwtUsefulClaims extractJwtUsefulClaims(String token, TokenType type, boolean ignoreExpiration) throws UnauthorizedException {
 
-        verifyTokenWithExceptions(token, type, ignoreExpiration);
+        if (isRevokedToken(token, type))
+            throw new UnauthorizedException("Invalid " + type.name().toLowerCase().replaceAll("_", " "));
 
-        Claims payload = Jwts.parser().build().parseSignedClaims(token).getPayload();
+        JwtConfiguration jwtConfiguration = getJwtConfigurationFromTokenType(type);
 
-        return new JwtUsefulClaims(
-                UUID.fromString(payload.getSubject()),
-                UUID.fromString((String) payload.get("jti")),
-                (boolean) payload.get("restore"),
-                TokenType.valueOf((String) payload.get("typ")) //... IllegalArgumentException
-        );
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(generateSecretKeyBytes(jwtConfiguration.getSecret()));
 
+            JWTVerifier verifier;
+
+            if (ignoreExpiration) {
+
+                verifier = JWT.require(algorithm)
+                        .withIssuer(jwtIssuer)
+                        .withClaim("typ", type.name())
+                        .acceptExpiresAt(31556889864403199L)
+                        .build();
+            } else {
+
+                verifier = JWT.require(algorithm)
+                        .withIssuer(jwtIssuer)
+                        .withClaim("typ", type.name())
+                        .build();
+
+            }
+
+            DecodedJWT decodedJWT = verifier.verify(token);
+
+            return new JwtUsefulClaims(
+                    UUID.fromString(decodedJWT.getSubject()),
+                    UUID.fromString(decodedJWT.getId()),
+                    decodedJWT.getClaim("restore").asBoolean(),
+                    TokenType.valueOf(decodedJWT.getClaim("typ").asString())
+            ); //... IllegalArgumentException
+
+
+        } catch (JWTVerificationException e) {
+            throw new UnauthorizedException("Invalid " + type.name().toLowerCase().replaceAll("_", " "));
+        }
     }
 
     public JwtUsefulClaims extractJwtUsefulClaims(ServerHttpRequest req) throws UnauthorizedException {
@@ -141,13 +165,9 @@ public class JwtUtils {
                 Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
                 TokenPair tokenPair = new TokenPair(cookies.get("__access_token").getValue(),
                         cookies.get("__refresh_token").getValue(), TokenPairType.HTTP);
-                JwtUsefulClaims jwtUsefulClaims;
-                try {
-                    jwtUsefulClaims = extractJwtUsefulClaims(tokenPair.getAccessToken(), TokenType.ACCESS_TOKEN, true);
-                } catch (ExpiredJwtException e) {
-                    jwtUsefulClaims = extractJwtUsefulClaims(tokenPair.getRefreshToken(), TokenType.REFRESH_TOKEN, false);
-                }
-                return jwtUsefulClaims;
+
+                return extractJwtUsefulClaims(tokenPair.getAccessToken(), TokenType.ACCESS_TOKEN, true);
+
             }
             case HEADER -> {
                 String autorizationHeader = req.getHeaders().getFirst("Authorization");
@@ -156,40 +176,42 @@ public class JwtUtils {
                     throw new UnauthorizedException("Malformed Authorization header");
                 String accessToken = autorizationHeader.split(" ")[1];
                 JwtUsefulClaims jwtUsefulClaims;
-                try {
-                    jwtUsefulClaims = extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true);
-                } catch (ExpiredJwtException e) {
-                    throw new UnauthorizedException("Expired access token: " + e.getMessage());
-                }
-                return jwtUsefulClaims;
+                return extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, false);
             }
             default -> throw new UnauthorizedException();
         }
 
     }
 
-    public void revokeToken(String token) {
-        TokenType type;
-        UUID jti;
-        try {
-            Claims payload = Jwts.parser().build().parseSignedClaims(token).getPayload();
-            type = TokenType.valueOf((String) payload.get("typ"));
-            jti = UUID.fromString((String) payload.get("jti"));
-        } catch (IllegalArgumentException e) {
-            type = null;
-            jti = null;
-        }
+    public void revokeToken(String token, TokenType type) {
 
-//        if (jti == null) throw new SomeException..()
-
+        UUID jti = extractJwtUsefulClaims(token, type, false).getJti();
         revokedTokenRepository.save(new RevokedToken(jti, token, type));
 
     }
 
-    public boolean isRevokedToken(String token) {
-        // Gestire IllegalArgumentException o assenza del claim
-        UUID jti = UUID.fromString((String) Jwts.parser().build().parseSignedClaims(token).getPayload().get("jti"));
+    public boolean isRevokedToken(String token, TokenType type) {
+
+        JwtConfiguration jwtConfiguration = getJwtConfigurationFromTokenType(type);
+
+        Algorithm algorithm = Algorithm.HMAC256(generateSecretKeyBytes(jwtConfiguration.getSecret()));
+
+        JWTVerifier verifier = JWT.require(algorithm)
+                .withIssuer(jwtIssuer)
+                .withClaim("typ", type.name())
+                .acceptExpiresAt(31556889864403199L)
+                .build();
+
+        UUID jti = UUID.fromString(verifier.verify(token).getId());
+
         return revokedTokenRepository.findByJti(jti).isPresent();
+
+    }
+
+    public boolean isRevokedToken(String token) {
+
+        return revokedTokenRepository.findByToken(token).isPresent();
+
     }
 
 
@@ -197,7 +219,7 @@ public class JwtUtils {
         switch (type) {
             case HTTP -> {
                 JwtUsefulClaims payload = extractJwtUsefulClaims(refreshToken, TokenType.REFRESH_TOKEN, false);
-                revokeToken(refreshToken);
+                revokeToken(refreshToken, TokenType.REFRESH_TOKEN);
                 return new TokenPair(
                         generateToken(payload.getSub(), TokenType.ACCESS_TOKEN, payload.isRestore()),
                         generateToken(payload.getSub(), TokenType.REFRESH_TOKEN, payload.isRestore()),
@@ -206,7 +228,7 @@ public class JwtUtils {
             }
             case WS -> {
                 JwtUsefulClaims payload = extractJwtUsefulClaims(refreshToken, TokenType.WS_REFRESH_TOKEN, false);
-                revokeToken(refreshToken);
+                revokeToken(refreshToken, TokenType.WS_REFRESH_TOKEN);
                 return new TokenPair(
                         generateToken(payload.getSub(), TokenType.WS_ACCESS_TOKEN, payload.isRestore()),
                         generateToken(payload.getSub(), TokenType.WS_REFRESH_TOKEN, payload.isRestore()),

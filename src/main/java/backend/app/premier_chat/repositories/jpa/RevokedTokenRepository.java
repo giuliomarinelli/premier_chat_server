@@ -12,4 +12,6 @@ public interface RevokedTokenRepository extends JpaRepository<RevokedToken, Inte
 
     public Optional<RevokedToken> findByJti(UUID jti);
 
+    public Optional<RevokedToken> findByToken(String token);
+
 }

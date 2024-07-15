@@ -3,6 +3,7 @@ package backend.app.premier_chat.Models.entities;
 import backend.app.premier_chat.Models.enums.TokenType;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
@@ -14,6 +15,7 @@ import java.util.UUID;
         }
 )
 @Data
+@NoArgsConstructor
 public class RevokedToken {
 
     @Id
@@ -24,7 +26,7 @@ public class RevokedToken {
     @Column(unique = true)
     private UUID jti;
 
-    @Column(length = 10000)
+    @Column(length = 10000, unique = true)
     private String token;
 
     @Enumerated(EnumType.STRING)

@@ -77,7 +77,7 @@ public class AppConfig {
     public JavaMailSenderImpl getMailSender(
             @Value("${spring.configuration.mail.smtp.host}") String smtpHost,
             @Value("${spring.configuration.mail.smtp.port}") String port,
-            @Value("${spring.configuration.mail.from}") String from,
+            @Value("${spring.configuration.mail.username}") String username,
             @Value("${spring.configuration.mail.password}") String password,
             @Value("${spring.configuration.mail.transport.protocol}") String protocol,
             @Value("${spring.configuration.mail.smtp.auth}") String auth,
@@ -88,7 +88,7 @@ public class AppConfig {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(smtpHost);
         mailSender.setPort(Integer.parseInt(port));
-        mailSender.setUsername(from);
+        mailSender.setUsername(username);
         mailSender.setPassword(password);
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", protocol);
