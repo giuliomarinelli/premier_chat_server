@@ -1,6 +1,7 @@
 package backend.app.premier_chat.debug;
 
 
+import backend.app.premier_chat.Models.Dto.outputDto.JotpWrapperOutputDTO;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.security.JwtUtils;
@@ -13,6 +14,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Component
@@ -28,6 +32,15 @@ public class DebugCmdLineRunner implements CommandLineRunner {
 
     @Autowired
     private SecurityUtils securityUtils;
+
+    public LocalTime getLocalTimeFromUnixEpochMillis(long unixEpochTimestampMillis) {
+        // Converti il timestamp Unix in millisecondi a un oggetto Instant
+        Instant instant = Instant.ofEpochMilli(unixEpochTimestampMillis);
+
+        // Converti l'oggetto Instant a LocalTime
+        return instant.atZone(ZoneId.systemDefault()).toLocalTime();
+
+    }
 
     @Override
     public void run(String... args) throws Exception {
@@ -52,6 +65,15 @@ public class DebugCmdLineRunner implements CommandLineRunner {
 //        log.info("Generated TOTP = {}", _TOTP);
 //        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP(secret, _TOTP));
         log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M", "832402"));
+
+        JotpWrapperOutputDTO jotpWrapperOutputDTO = securityUtils.generateJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M");
+
+        log.info(
+                "Codice TOTP = {}. Valido dalle {} alle {}",
+                jotpWrapperOutputDTO.getTOTP(),
+                getLocalTimeFromUnixEpochMillis(jotpWrapperOutputDTO.getGeneratedAt()),
+                getLocalTimeFromUnixEpochMillis(jotpWrapperOutputDTO.getExpiresAt())
+        );
 
     }
 

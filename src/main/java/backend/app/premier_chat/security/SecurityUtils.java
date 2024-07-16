@@ -1,5 +1,6 @@
 package backend.app.premier_chat.security;
 
+import backend.app.premier_chat.Models.Dto.outputDto.JotpWrapperOutputDTO;
 import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.enums.EncodeType;
 import backend.app.premier_chat.exception_handling.InternalServerErrorException;
@@ -66,9 +67,12 @@ public class SecurityUtils {
         return OTP.randomBase32(jotpConfiguration.getBytesNumberForBase32Secret());
     }
 
-    public String generateJotpTOTP(String base32Secret) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        String hexTime = OTP.timeInHex(System.currentTimeMillis(), jotpConfiguration.getPeriod());
-        return OTP.create(base32Secret, hexTime, jotpConfiguration.getDigits(), Type.TOTP);
+    public JotpWrapperOutputDTO generateJotpTOTP(String base32Secret) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        long now = System.currentTimeMillis();
+        long exp = now + jotpConfiguration.getPeriod() * 1000L;
+        String hexTime = OTP.timeInHex(now, jotpConfiguration.getPeriod());
+        String TOTP = OTP.create(base32Secret, hexTime, jotpConfiguration.getDigits(), Type.TOTP);
+        return new JotpWrapperOutputDTO(TOTP, now, exp);
     }
 
     public boolean verifyJotpTOTP(String base32Secret, String TOTP) {
