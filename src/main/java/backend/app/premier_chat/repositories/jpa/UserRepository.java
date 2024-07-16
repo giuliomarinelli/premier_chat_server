@@ -46,8 +46,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         return findValidNotEnabledUserByUsernameAndNow(username, System.currentTimeMillis());
     }
 
-    @Query("SELECT u FROM User u WHERE u.email = :email AND u.enabled = true")
-    public Optional<User> findValidEnabledUserByUsername(String email);
+    @Query("SELECT u FROM User u WHERE u.username = :username AND u.enabled = true")
+    public Optional<User> findValidEnabledUserByUsername(String username);
 
     // Trova per email
 
