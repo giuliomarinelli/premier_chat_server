@@ -1,15 +1,24 @@
 package backend.app.premier_chat.security;
 
+import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.enums.EncodeType;
+import com.amdelamar.jotp.OTP;
 import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 import java.security.SecureRandom;
 
 @Component
+@Configuration
 public class SecurityUtils {
+
+    @Autowired
+    private JotpConfiguration jotpConfiguration;
 
     public String keyGenerator(int bytes, EncodeType encodeType) {
 
@@ -42,6 +51,10 @@ public class SecurityUtils {
         String visible = email.substring(i - 2, i);
         return "*".repeat(i - 3) + visible + email.substring(i);
 
+    }
+
+    public String generateJotpRandomSecret() {
+        return OTP.randomBase32(20);
     }
 
 

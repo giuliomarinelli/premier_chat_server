@@ -1,6 +1,7 @@
 package backend.app.premier_chat.configuration;
 
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
+import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -111,6 +112,14 @@ public class AppConfig {
             @Value("${spring.configuration.jwt.expiration.refreshToken}") long maxAgeMs
     ) {
         return new SecurityCookieConfiguration(path, httpOnly, sameSite, secure, domain, maxAgeMs);
+    }
+
+    @Bean
+    public JotpConfiguration jotpConfiguration(
+            @Value("${spring.configuration.security.jotp.bytesNumberForBase32Secret}") int bytesNumberForBase32Secret,
+            @Value("${spring.configuration.security.jotp.digits}") int digits
+    ) {
+        return new JotpConfiguration(bytesNumberForBase32Secret, digits);
     }
 
 }
