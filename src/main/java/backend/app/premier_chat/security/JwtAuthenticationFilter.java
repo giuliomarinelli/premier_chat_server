@@ -4,6 +4,7 @@ import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfig
 import backend.app.premier_chat.Models.configuration.JwtUsefulClaims;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.TokenPair;
+import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
@@ -13,12 +14,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 import reactor.util.annotation.NonNull;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -53,6 +56,7 @@ public class JwtAuthenticationFilter implements WebFilter {
         }
 
         AuthorizationStrategy strategy = authorizationStrategyConfiguration.getStrategy();
+
 
         switch (strategy) {
 
@@ -121,7 +125,16 @@ public class JwtAuthenticationFilter implements WebFilter {
                     }
                 }
 
-                return chain.filter(exchange);
+                String ctxAccessToken = jwtUtils.extractHttpTokensFromContext(req, strategy).getAccessToken();
+
+                UUID userId = jwtUtils.extractJwtUsefulClaims(ctxAccessToken, TokenType.ACCESS_TOKEN, true).getSub();
+
+                assert userRepository.findValidEnabledUserById(userId).isPresent();
+                User user = userRepository.findValidEnabledUserById(userId).get();
+
+                AuthenticationToken authenticationToken = new AuthenticationToken(user.getAuthorities());
+
+                return chain.filter(exchange).contextWrite(ReactiveSecurityContextHolder.withAuthentication(authenticationToken));
 
             }
 
@@ -131,7 +144,16 @@ public class JwtAuthenticationFilter implements WebFilter {
 
                 if (!jwtUtils.verifyToken(accessToken, TokenType.ACCESS_TOKEN, false))
                     throw new UnauthorizedException("Invalid or expired access token");
-                return chain.filter(exchange);
+
+                UUID userId = jwtUtils.extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true).getSub();
+
+                assert userRepository.findValidEnabledUserById(userId).isPresent();
+                User user = userRepository.findValidEnabledUserById(userId).get();
+
+                AuthenticationToken authenticationToken = new AuthenticationToken(user.getAuthorities());
+
+                return chain.filter(exchange).contextWrite(ReactiveSecurityContextHolder.withAuthentication(authenticationToken));
+
 
             }
             default -> throw new UnauthorizedException();

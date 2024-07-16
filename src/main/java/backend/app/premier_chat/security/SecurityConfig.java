@@ -13,10 +13,11 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 public class SecurityConfig {
 
     @Autowired
-    private JwtAuthenticationFilter jwtAuthorizationFilter;
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+
         http.csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(
                         e -> e.pathMatchers("/api/auth/**")
@@ -24,7 +25,7 @@ public class SecurityConfig {
                                 .anyExchange().authenticated()
                 );
 
-        http.addFilterAt(jwtAuthorizationFilter, SecurityWebFiltersOrder.AUTHENTICATION);
+        http.addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION);
 
         return http.build();
 

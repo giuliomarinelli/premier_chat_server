@@ -5,9 +5,11 @@ import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmRegistrationOutputDto;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.JwtUsefulClaims;
+import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.ActivationTokenConfiguration;
 import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.enums.EncodeType;
+import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.BadRequestException;
 import backend.app.premier_chat.exception_handling.InternalServerErrorException;
@@ -23,6 +25,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -110,6 +116,30 @@ public class AuthService {
 
     }
 
+
+    public Map<TokenPairType, TokenPair> performAuthentication(UUID userId, boolean restore) {
+
+        Map<TokenPairType, TokenPair> tokensMap = new HashMap<>();
+
+        tokensMap.put(
+                TokenPairType.HTTP, new TokenPair(
+                        jwtUtils.generateToken(userId, TokenType.ACCESS_TOKEN, restore),
+                        jwtUtils.generateToken(userId, TokenType.REFRESH_TOKEN, restore),
+                        TokenPairType.HTTP
+                )
+        );
+
+        tokensMap.put(
+                TokenPairType.WS, new TokenPair(
+                        jwtUtils.generateToken(userId, TokenType.WS_ACCESS_TOKEN, restore),
+                        jwtUtils.generateToken(userId, TokenType.WS_REFRESH_TOKEN, restore),
+                        TokenPairType.HTTP
+                )
+        );
+
+        return tokensMap;
+
+    }
 
 
 }
