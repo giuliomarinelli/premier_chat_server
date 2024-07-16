@@ -1,6 +1,7 @@
 package backend.app.premier_chat.debug;
 
 
+import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.security.JwtUtils;
 import lombok.extern.log4j.Log4j2;
@@ -12,27 +13,32 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-//@Component
-//@Order(3)
+@Component
+@Order(3)
 @Log4j2
 public class DebugCmdLineRunner implements CommandLineRunner {
 
     @Autowired
     private JwtUtils jwtUtils;
 
+    @Autowired
+    private SecurityCookieConfiguration securityCookieConfiguration;
+
     @Override
     public void run(String... args) throws Exception {
 
-        String token = jwtUtils.generateToken(UUID.randomUUID(), TokenType.ACCESS_TOKEN, false);
-        log.info("ACCESS TOKEN = {}", token);
+//        String token = jwtUtils.generateToken(UUID.randomUUID(), TokenType.ACCESS_TOKEN, false);
+//        log.info("ACCESS TOKEN = {}", token);
+//
+//        jwtUtils.revokeToken(token, TokenType.ACCESS_TOKEN);
+//
+//        log.info("Is Revoked Token: {}", jwtUtils.isRevokedToken(token, TokenType.ACCESS_TOKEN));
+//
+//        log.info("Is Token Valid: {}", jwtUtils.verifyToken(token, TokenType.ACCESS_TOKEN, false));
+//
+//        log.info(jwtUtils.extractJwtUsefulClaims(token, TokenType.ACCESS_TOKEN, false));
 
-        jwtUtils.revokeToken(token, TokenType.ACCESS_TOKEN);
-
-        log.info("Is Revoked Token: {}", jwtUtils.isRevokedToken(token, TokenType.ACCESS_TOKEN));
-
-        log.info("Is Token Valid: {}", jwtUtils.verifyToken(token, TokenType.ACCESS_TOKEN, false));
-
-        log.info(jwtUtils.extractJwtUsefulClaims(token, TokenType.ACCESS_TOKEN, false));
+        log.info(securityCookieConfiguration);
 
     }
 

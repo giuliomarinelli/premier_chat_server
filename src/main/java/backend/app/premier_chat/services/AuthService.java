@@ -9,7 +9,6 @@ import backend.app.premier_chat.Models.configuration.jwt_configuration.Activatio
 import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.enums.EncodeType;
 import backend.app.premier_chat.Models.enums.TokenType;
-import backend.app.premier_chat.configuration.ConfigurationUtils;
 import backend.app.premier_chat.exception_handling.BadRequestException;
 import backend.app.premier_chat.exception_handling.InternalServerErrorException;
 import backend.app.premier_chat.exception_handling.NotFoundException;
@@ -18,10 +17,7 @@ import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.security.JwtUtils;
 import backend.app.premier_chat.security.SecurityUtils;
 import io.jsonwebtoken.ExpiredJwtException;
-import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,9 +40,6 @@ public class AuthService {
     private UserRepository userRepository;
 
     @Autowired
-    private ConfigurationUtils configurationUtils;
-
-    @Autowired
     private JwtUtils jwtUtils;
 
     @Autowired
@@ -59,7 +52,7 @@ public class AuthService {
 
         return Mono.fromCallable(() -> {
 
-            String totpSecret = configurationUtils.keyGenerator(64, EncodeType.BASE_32);
+            String totpSecret = securityUtils.keyGenerator(64, EncodeType.BASE_32);
 
             try {
                 User user = new User(

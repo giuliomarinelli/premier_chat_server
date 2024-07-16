@@ -5,6 +5,7 @@ import backend.app.premier_chat.Models.configuration.JwtUsefulClaims;
 import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.*;
 import backend.app.premier_chat.Models.entities.RevokedToken;
+import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
@@ -158,16 +160,22 @@ public class JwtUtils {
         }
     }
 
-    public JwtUsefulClaims extractJwtUsefulClaims(ServerHttpRequest req) throws UnauthorizedException {
+    public TokenPair extractHttpTokensFromContext(ServerHttpRequest req, AuthorizationStrategy strategy) throws UnauthorizedException {
 
         switch (authorizationStrategyConfiguration.getStrategy()) {
             case COOKIE -> {
+                if (req.getCookies().isEmpty())
+                    throw new UnauthorizedException("No provided access token and refresh token");
                 Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
-                TokenPair tokenPair = new TokenPair(cookies.get("__access_token").getValue(),
-                        cookies.get("__refresh_token").getValue(), TokenPairType.HTTP);
-
-                return extractJwtUsefulClaims(tokenPair.getAccessToken(), TokenType.ACCESS_TOKEN, true);
-
+                if (cookies.get("__access_token") == null || cookies.get("__access_token").getValue().isBlank())
+                    throw new UnauthorizedException("No provided access token");
+                if (cookies.get("__refresh_token") == null || cookies.get("__refresh_token").getValue().isBlank())
+                    throw new UnauthorizedException("No provided refresh token");
+                return new TokenPair(
+                        cookies.get("__access_token").getValue(),
+                        cookies.get("__refresh_token").getValue(),
+                        TokenPairType.HTTP
+                );
             }
             case HEADER -> {
                 String autorizationHeader = req.getHeaders().getFirst("Authorization");
@@ -175,8 +183,7 @@ public class JwtUtils {
                 if (!autorizationHeader.startsWith("Bearer "))
                     throw new UnauthorizedException("Malformed Authorization header");
                 String accessToken = autorizationHeader.split(" ")[1];
-                JwtUsefulClaims jwtUsefulClaims;
-                return extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, false);
+                return new TokenPair(accessToken, null, TokenPairType.HTTP);
             }
             default -> throw new UnauthorizedException();
         }
