@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Component
@@ -38,8 +39,18 @@ public class DebugCmdLineRunner implements CommandLineRunner {
         Instant instant = Instant.ofEpochMilli(unixEpochTimestampMillis);
 
         // Converti l'oggetto Instant a LocalTime
-        return instant.atZone(ZoneId.systemDefault()).toLocalTime();
+        return roundToNearestSecond(instant.atZone(ZoneId.systemDefault()).toLocalTime());
 
+    }
+
+    public LocalTime roundToNearestSecond(LocalTime localTime) {
+        int nanoSeconds = localTime.getNano();
+        if (nanoSeconds >= 500_000_000) {
+            // Arrotonda verso l'alto
+            localTime = localTime.plusSeconds(1);
+        }
+        // Imposta i nanosecondi a zero
+        return localTime.truncatedTo(ChronoUnit.SECONDS);
     }
 
     @Override
@@ -64,7 +75,7 @@ public class DebugCmdLineRunner implements CommandLineRunner {
 //        String _TOTP = securityUtils.generateJotpTOTP(secret);
 //        log.info("Generated TOTP = {}", _TOTP);
 //        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP(secret, _TOTP));
-        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M", "832402"));
+        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M", "936577"));
 
         JotpWrapperOutputDTO jotpWrapperOutputDTO = securityUtils.generateJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M");
 
