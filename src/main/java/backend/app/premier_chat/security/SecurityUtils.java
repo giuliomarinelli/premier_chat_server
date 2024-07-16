@@ -2,7 +2,10 @@ package backend.app.premier_chat.security;
 
 import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.enums.EncodeType;
+import backend.app.premier_chat.exception_handling.InternalServerErrorException;
 import com.amdelamar.jotp.OTP;
+import com.amdelamar.jotp.type.Type;
+import jdk.jfr.Timestamp;
 import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
@@ -11,7 +14,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Component
 @Configuration
@@ -54,7 +63,21 @@ public class SecurityUtils {
     }
 
     public String generateJotpRandomSecret() {
-        return OTP.randomBase32(20);
+        return OTP.randomBase32(jotpConfiguration.getBytesNumberForBase32Secret());
+    }
+
+    public String generateJotpTOTP(String base32Secret) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        String hexTime = OTP.timeInHex(System.currentTimeMillis(), jotpConfiguration.getPeriod());
+        return OTP.create(base32Secret, hexTime, jotpConfiguration.getDigits(), Type.TOTP);
+    }
+
+    public boolean verifyJotpTOTP(String base32Secret, String TOTP) {
+        try {
+            String hexTime = OTP.timeInHex(System.currentTimeMillis(), jotpConfiguration.getPeriod());
+            return OTP.verify(base32Secret, hexTime, TOTP, jotpConfiguration.getDigits(), Type.TOTP);
+        } catch (NoSuchAlgorithmException | InvalidKeyException | IOException e) {
+            throw new InternalServerErrorException("Error in TOTP verification. " + e.getMessage());
+        }
     }
 
 

@@ -9,5 +9,6 @@ public class JotpConfiguration {
 
     private int bytesNumberForBase32Secret;
     private int digits;
+    private int period;
 
 }

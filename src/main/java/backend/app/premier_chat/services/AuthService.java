@@ -58,7 +58,7 @@ public class AuthService {
 
         return Mono.fromCallable(() -> {
 
-            String totpSecret = securityUtils.keyGenerator(64, EncodeType.BASE_32);
+            String totpSecret = "";
 
             try {
                 User user = new User(

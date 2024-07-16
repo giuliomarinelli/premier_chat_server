@@ -117,9 +117,10 @@ public class AppConfig {
     @Bean
     public JotpConfiguration jotpConfiguration(
             @Value("${spring.configuration.security.jotp.bytesNumberForBase32Secret}") int bytesNumberForBase32Secret,
-            @Value("${spring.configuration.security.jotp.digits}") int digits
+            @Value("${spring.configuration.security.jotp.digits}") int digits,
+            @Value("${spring.configuration.security.jotp.period}") int period
     ) {
-        return new JotpConfiguration(bytesNumberForBase32Secret, digits);
+        return new JotpConfiguration(bytesNumberForBase32Secret, digits, period);
     }
 
 }
