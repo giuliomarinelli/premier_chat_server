@@ -1,10 +1,10 @@
 package backend.app.premier_chat.security;
 
-import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
@@ -12,6 +12,8 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthorizationFilter;
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
@@ -21,6 +23,8 @@ public class SecurityConfig {
                                 .permitAll()
                                 .anyExchange().authenticated()
                 );
+
+        http.addFilterAt(jwtAuthorizationFilter, SecurityWebFiltersOrder.AUTHENTICATION);
 
         return http.build();
 
