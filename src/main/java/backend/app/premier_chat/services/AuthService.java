@@ -73,7 +73,8 @@ public class AuthService {
                         userPostInputDto.email(),
                         encoder.encode(userPostInputDto.password()),
                         totpSecret,
-                        activationTokenConfiguration.getExpiresIn()
+                        activationTokenConfiguration.getExpiresIn(),
+                        userPostInputDto.phoneNumber()
                 );
                 userRepository.save(user);
                 String activationToken = jwtUtils.generateToken(user.getId(), TokenType.ACTIVATION_TOKEN, false);
