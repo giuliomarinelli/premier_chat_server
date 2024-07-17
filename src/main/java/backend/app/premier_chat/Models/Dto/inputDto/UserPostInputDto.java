@@ -11,6 +11,10 @@ public record UserPostInputDto(
         String email,
 
         @NotBlank(message = "'password' field is required")
-        String password
+        String password,
+
+        @NotBlank(message = "'phoneNumber' field is required")
+        String phoneNumber
         // VALIDAZIONE DEI PATTERN
-) {}
+) {
+}

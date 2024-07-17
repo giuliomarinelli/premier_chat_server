@@ -63,6 +63,10 @@ public class SecurityUtils {
 
     }
 
+    public String obscurePhoneNumber(String phoneNumber) {
+        return "*".repeat(phoneNumber.length() - 2) + phoneNumber.substring(phoneNumber.length() - 2);
+    }
+
     public String generateJotpRandomSecret() {
         return OTP.randomBase32(jotpConfiguration.getBytesNumberForBase32Secret());
     }

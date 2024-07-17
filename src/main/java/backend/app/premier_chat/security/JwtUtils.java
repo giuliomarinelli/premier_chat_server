@@ -190,10 +190,23 @@ public class JwtUtils {
 
     }
 
-    public void revokeToken(String token, TokenType type) {
+    public TokenPair extractWsTokensFromContextCookies(ServerHttpRequest req) {
 
-        UUID jti = extractJwtUsefulClaims(token, type, false).getJti();
-        revokedTokenRepository.save(new RevokedToken(jti, token, type));
+        TokenPair tokenPair = new TokenPair("", "", TokenPairType.WS);
+        Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+        if (cookies.get("__ws_access_token") != null) tokenPair.setAccessToken(cookies.get("__ws_access_token").getValue());
+        if (cookies.get("__ws_refresh_token") != null) tokenPair.setRefreshToken(cookies.get("__ws_refresh_token").getValue());
+        return tokenPair;
+
+    }
+
+    public void revokeToken(String token, TokenType type) {
+        try {
+            UUID jti = extractJwtUsefulClaims(token, type, true).getJti();
+            revokedTokenRepository.save(new RevokedToken(jti, token, type));
+        } catch (JWTVerificationException e) {
+            revokedTokenRepository.save(new RevokedToken(null, token, type));
+        }
 
     }
 
