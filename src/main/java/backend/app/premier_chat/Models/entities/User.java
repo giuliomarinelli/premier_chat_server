@@ -11,6 +11,7 @@ import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -49,6 +50,8 @@ public class User implements UserDetails {
 
     private List<_2FAStrategy> _2FAStrategies = new ArrayList<>(); // Strategie di 2FA attive e disponibili all'uso
 
+    private String phoneNumber;
+
     @JsonIgnore
     private String totpSecret;
 
@@ -63,11 +66,12 @@ public class User implements UserDetails {
 
     private List<UserRole> roles = new ArrayList<>();
 
-    public User(String username, String email, String hashedPassword, String totpSecret, long msForActivation) {
+    public User(String username, String email, String hashedPassword, String totpSecret, long msForActivation, String phoneNumber) {
         this.username = username;
         this.hashedPassword = hashedPassword;
         this.email = email;
         this.totpSecret = totpSecret;
+        this.phoneNumber = phoneNumber;
         createdAt = updatedAt = System.currentTimeMillis();
         mustActivateInto = createdAt + msForActivation;
         enabled = false;

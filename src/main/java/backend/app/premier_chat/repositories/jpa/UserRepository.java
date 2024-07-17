@@ -1,10 +1,12 @@
 package backend.app.premier_chat.repositories.jpa;
 
 import backend.app.premier_chat.Models.entities.User;
+import backend.app.premier_chat.Models.enums._2FAStrategy;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -67,5 +69,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT u FROM User u WHERE u.email = :email AND u.enabled = true")
     public Optional<User> findValidEnabledUserByEmail(String email);
+
+    @Query("SELECT u._2FAStrategies FROM User u WHERE u.id = :userId AND u.enabled = true")
+    public Optional<List<_2FAStrategy>> find2FaStrategiesByUserId(UUID userId);
+
+    @Query("SELECT u.email FROM User u WHERE u.id = :userId AND u.enabled = true")
+    public Optional<String> findEmailByUserId(UUID userId);
+
+    @Query("SELECT u.phoneNumber FROM User u WHERE u.id = :userId AND u.enabled = true")
+    public Optional<String> findPhoneNumberByUserId(UUID userId);
 
 }

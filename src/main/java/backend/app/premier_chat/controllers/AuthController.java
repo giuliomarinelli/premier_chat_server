@@ -2,16 +2,17 @@ package backend.app.premier_chat.controllers;
 
 import backend.app.premier_chat.Models.Dto.inputDto.LoginDto;
 import backend.app.premier_chat.Models.Dto.inputDto.UserPostInputDto;
-import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOtputHeaderLoginDto;
-import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
-import backend.app.premier_chat.Models.Dto.outputDto.ConfirmRegistrationOutputDto;
+import backend.app.premier_chat.Models.Dto.outputDto.*;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
+import backend.app.premier_chat.Models.enums._2FAStrategy;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
+import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.security.JwtUtils;
+import backend.app.premier_chat.security.SecurityUtils;
 import backend.app.premier_chat.services.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,6 +43,12 @@ public class AuthController {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private SecurityUtils securityUtils;
 
     @PostMapping("/account/register")
     public Mono<ResponseEntity<ConfirmRegistrationOutputDto>> register(@Valid @RequestBody Mono<UserPostInputDto> userInput) {
@@ -67,11 +75,13 @@ public class AuthController {
                 Map<TokenPairType, TokenPair> tokens = authService.performAuthentication(userId, loginDto.restore());
                 switch (authorizationStrategyConfiguration.getStrategy()) {
                     case HEADER -> {
-                        return new ConfirmOtputHeaderLoginDto("Logged in successfully",
+                        ConfirmOtputHeaderLoginDto body = new ConfirmOtputHeaderLoginDto(
+                                "Logged in successfully",
                                 HttpStatus.OK,
                                 tokens.get(TokenPairType.HTTP),
                                 tokens.get(TokenPairType.WS)
-                        ); // Bisogna gestire in qualche modo il restore, per adesso lo lascio non gestito
+                        );
+                        return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
                     }
                     case COOKIE -> {
                         if (loginDto.restore()) {
@@ -112,7 +122,6 @@ public class AuthController {
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
-
                         } else {
 
                             res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP).getAccessToken())
@@ -120,6 +129,7 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -128,6 +138,7 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -136,6 +147,7 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -144,23 +156,126 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
                         }
+                        ConfirmOutputDto body = new ConfirmOutputDto("Logged in successfully", HttpStatus.OK);
+                        return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
                     }
                     default -> throw new UnauthorizedException();
                 }
-                return new ConfirmOutputDto("Logged in successfully", HttpStatus.OK);
             } else {
 
                 String preAuthorizationToken = jwtUtils.generateToken(userId, TokenType.PRE_AUTHORIZATION_TOKEN, loginDto.restore());
 
+                List<_2FAStrategy> _2faStrategies = userRepository.find2FaStrategiesByUserId(userId).orElseThrow(
+                        () -> new UnauthorizedException("An authentication error occurred")
+                );
 
+                boolean _email = false, _sms = false;
 
-        }
+                if (_2faStrategies.contains(_2FAStrategy.EMAIL)) _email = true;
+                if (_2faStrategies.contains(_2FAStrategy.SMS)) _sms = true;
 
-    })
-}
+                switch (authorizationStrategyConfiguration.getStrategy()) {
+                    case HEADER -> {
+                        if (_email && !_sms) {
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputHeaderLoginWith2FaObscuredEmailDto body = new ConfirmOutputHeaderLoginWith2FaObscuredEmailDto(
+                                    "First step of authentication went on successfully, please verify your email " +
+                                            "to receive an authentication code to your email address",
+                                    HttpStatus.OK,
+                                    preAuthorizationToken,
+                                    securityUtils.obscureEmail(email)
+                            );
+                            return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+                        } else if (!_email && _sms) {
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputHeaderLoginWith2FaObscuredPhoneNumberDto body = new ConfirmOutputHeaderLoginWith2FaObscuredPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your phoneNumber " +
+                                            "to receive an authentication code via SMS",
+                                    HttpStatus.OK,
+                                    preAuthorizationToken,
+                                    securityUtils.obscurePhoneNumber(phoneNumber)
+                            );
+                            return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+                        } else {
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputHeaderLoginWith2FaObscuredEmailAndPhoneNumberDto body = new ConfirmOutputHeaderLoginWith2FaObscuredEmailAndPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your email or your phoneNumber " +
+                                            "to receive an authentication code via email or via SMS",
+                                    HttpStatus.OK,
+                                    preAuthorizationToken,
+                                    securityUtils.obscureEmail(email),
+                                    securityUtils.obscurePhoneNumber(phoneNumber)
+                            );
+                            return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+                        }
+                    }
+                    case COOKIE -> {
+                        res.addCookie(ResponseCookie.from("__pre_authorization_token", preAuthorizationToken)
+                                .domain(securityCookieConfiguration.getDomain())
+                                .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                .path(securityCookieConfiguration.getPath())
+                                .sameSite(securityCookieConfiguration.getSameSite())
+                                .secure(securityCookieConfiguration.isSecure())
+                                .build());
+                        if (_email && !_sms) {
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputCookieLoginWith2FaObscuredEmailDto body = new ConfirmOutputCookieLoginWith2FaObscuredEmailDto(
+                                    "First step of authentication went on successfully, please verify your email " +
+                                            "to receive an authentication code to your email address",
+                                    HttpStatus.OK,
+                                    securityUtils.obscureEmail(email)
+                            );
+                            return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+                        } else if (!_email && _sms) {
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputCookieLoginWith2FaObscuredPhoneNumberDto body = new ConfirmOutputCookieLoginWith2FaObscuredPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your phoneNumber " +
+                                            "to receive an authentication code via SMS",
+                                    HttpStatus.OK,
+                                    securityUtils.obscurePhoneNumber(phoneNumber)
+                            );
+                            return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+                        } else {
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputCookieLoginWith2FaObscuredEmailAndPhoneNumberDto body = new ConfirmOutputCookieLoginWith2FaObscuredEmailAndPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your email or your phoneNumber " +
+                                            "to receive an authentication code via email or via SMS",
+                                    HttpStatus.OK,
+                                    securityUtils.obscureEmail(email),
+                                    securityUtils.obscurePhoneNumber(phoneNumber)
+                            );
+                            return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+                        }
+                    }
+                    default -> throw new UnauthorizedException();
+                }
+
+            }
+
+        }).map(body -> ResponseEntity.status(HttpStatus.OK).body(body));
+    }
 
 }
