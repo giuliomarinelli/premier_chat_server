@@ -194,8 +194,10 @@ public class JwtUtils {
 
         TokenPair tokenPair = new TokenPair("", "", TokenPairType.WS);
         Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
-        if (cookies.get("__ws_access_token") != null) tokenPair.setAccessToken(cookies.get("__ws_access_token").getValue());
-        if (cookies.get("__ws_refresh_token") != null) tokenPair.setRefreshToken(cookies.get("__ws_refresh_token").getValue());
+        if (cookies.get("__ws_access_token") != null)
+            tokenPair.setAccessToken(cookies.get("__ws_access_token").getValue());
+        if (cookies.get("__ws_refresh_token") != null)
+            tokenPair.setRefreshToken(cookies.get("__ws_refresh_token").getValue());
         return tokenPair;
 
     }

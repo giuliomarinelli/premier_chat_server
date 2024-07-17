@@ -82,23 +82,85 @@ public class AuthController {
                     case COOKIE -> {
                         if (loginDto.restore()) {
 
-                            res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP).getAccessToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__access_token",
+                                            tokens.get(TokenPairType.HTTP).getAccessToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
-                            res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP).getRefreshToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP).getRefreshToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
-                            res.addCookie(ResponseCookie.from("__ws_access_token", tokens.get(TokenPairType.WS).getAccessToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__ws_access_token", tokens.get(TokenPairType.WS)
+                                            .getAccessToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
-                            res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS).getRefreshToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS)
+                                            .getRefreshToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
                         } else {
 
-                            res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP).getAccessToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP)
+                                            .getAccessToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
-                            res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP).getRefreshToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP)
+                                            .getRefreshToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
-                            res.addCookie(ResponseCookie.from("__ws_access_token", tokens.get(TokenPairType.WS).getAccessToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__ws_access_token",
+                                            tokens.get(TokenPairType.WS).getAccessToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
-                            res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS).getRefreshToken()).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).maxAge(securityCookieConfiguration.getMaxAge()).secure(securityCookieConfiguration.isSecure()).build());
+                            res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS).getRefreshToken())
+                                    .domain(securityCookieConfiguration.getDomain())
+                                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                    .path(securityCookieConfiguration.getPath())
+                                    .sameSite(securityCookieConfiguration.getSameSite())
+                                    .maxAge(securityCookieConfiguration.getMaxAge())
+                                    .secure(securityCookieConfiguration.isSecure())
+                                    .build());
 
                         }
                         ConfirmOutputDto body = new ConfirmOutputDto("Logged in successfully", HttpStatus.OK);
@@ -120,34 +182,98 @@ public class AuthController {
                 switch (authorizationStrategyConfiguration.getStrategy()) {
                     case HEADER -> {
                         if (_email && !_sms) {
-                            String email = userRepository.findEmailByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            ConfirmOutputHeaderLoginWith2FaObscuredEmailDto body = new ConfirmOutputHeaderLoginWith2FaObscuredEmailDto("First step of authentication went on successfully, please verify your email " + "to receive an authentication code to your email address", HttpStatus.OK, preAuthorizationToken, securityUtils.obscureEmail(email));
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputHeaderLoginWith2FaObscuredEmailDto body = new ConfirmOutputHeaderLoginWith2FaObscuredEmailDto(
+                                    "First step of authentication went on successfully, please verify your email "
+                                            + "to receive an authentication code to your email address",
+                                    HttpStatus.OK,
+                                    preAuthorizationToken,
+                                    securityUtils.obscureEmail(email));
+
                             return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+
                         } else if (!_email && _sms) {
-                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            ConfirmOutputHeaderLoginWith2FaObscuredPhoneNumberDto body = new ConfirmOutputHeaderLoginWith2FaObscuredPhoneNumberDto("First step of authentication went on successfully, please verify your phoneNumber " + "to receive an authentication code via SMS", HttpStatus.OK, preAuthorizationToken, securityUtils.obscurePhoneNumber(phoneNumber));
+
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputHeaderLoginWith2FaObscuredPhoneNumberDto body = new ConfirmOutputHeaderLoginWith2FaObscuredPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your phoneNumber "
+                                            + "to receive an authentication code via SMS",
+                                    HttpStatus.OK,
+                                    preAuthorizationToken,
+                                    securityUtils.obscurePhoneNumber(phoneNumber)
+                            );
+
                             return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+
                         } else {
-                            String email = userRepository.findEmailByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            ConfirmOutputHeaderLoginWith2FaObscuredEmailAndPhoneNumberDto body = new ConfirmOutputHeaderLoginWith2FaObscuredEmailAndPhoneNumberDto("First step of authentication went on successfully, please verify your email or your phoneNumber " + "to receive an authentication code via email or via SMS", HttpStatus.OK, preAuthorizationToken, securityUtils.obscureEmail(email), securityUtils.obscurePhoneNumber(phoneNumber));
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputHeaderLoginWith2FaObscuredEmailAndPhoneNumberDto body = new ConfirmOutputHeaderLoginWith2FaObscuredEmailAndPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your email or your phoneNumber "
+                                            + "to receive an authentication code via email or via SMS",
+                                    HttpStatus.OK, preAuthorizationToken, securityUtils.obscureEmail(email),
+                                    securityUtils.obscurePhoneNumber(phoneNumber));
+
                             return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
                         }
                     }
                     case COOKIE -> {
-                        res.addCookie(ResponseCookie.from("__pre_authorization_token", preAuthorizationToken).domain(securityCookieConfiguration.getDomain()).httpOnly(securityCookieConfiguration.isHttpOnly()).path(securityCookieConfiguration.getPath()).sameSite(securityCookieConfiguration.getSameSite()).secure(securityCookieConfiguration.isSecure()).build());
+
+                        res.addCookie(ResponseCookie.from("__pre_authorization_token", preAuthorizationToken)
+                                .domain(securityCookieConfiguration.getDomain())
+                                .httpOnly(securityCookieConfiguration.isHttpOnly())
+                                .path(securityCookieConfiguration.getPath())
+                                .sameSite(securityCookieConfiguration.getSameSite())
+                                .secure(securityCookieConfiguration.isSecure())
+                                .build());
+
                         if (_email && !_sms) {
-                            String email = userRepository.findEmailByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            ConfirmOutputCookieLoginWith2FaObscuredEmailDto body = new ConfirmOutputCookieLoginWith2FaObscuredEmailDto("First step of authentication went on successfully, please verify your email " + "to receive an authentication code to your email address", HttpStatus.OK, securityUtils.obscureEmail(email));
+
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputCookieLoginWith2FaObscuredEmailDto body = new ConfirmOutputCookieLoginWith2FaObscuredEmailDto(
+                                    "First step of authentication went on successfully, please verify your email "
+                                            + "to receive an authentication code to your email address",
+                                    HttpStatus.OK,
+                                    securityUtils.obscureEmail(email));
+
                             return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+
                         } else if (!_email && _sms) {
-                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            ConfirmOutputCookieLoginWith2FaObscuredPhoneNumberDto body = new ConfirmOutputCookieLoginWith2FaObscuredPhoneNumberDto("First step of authentication went on successfully, please verify your phoneNumber " + "to receive an authentication code via SMS", HttpStatus.OK, securityUtils.obscurePhoneNumber(phoneNumber));
+
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred"));
+                            ConfirmOutputCookieLoginWith2FaObscuredPhoneNumberDto body = new ConfirmOutputCookieLoginWith2FaObscuredPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your phoneNumber "
+                                            + "to receive an authentication code via SMS",
+                                    HttpStatus.OK,
+                                    securityUtils.obscurePhoneNumber(phoneNumber));
+
                             return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
+
                         } else {
-                            String email = userRepository.findEmailByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
-                            ConfirmOutputCookieLoginWith2FaObscuredEmailAndPhoneNumberDto body = new ConfirmOutputCookieLoginWith2FaObscuredEmailAndPhoneNumberDto("First step of authentication went on successfully, please verify your email or your phoneNumber " + "to receive an authentication code via email or via SMS", HttpStatus.OK, securityUtils.obscureEmail(email), securityUtils.obscurePhoneNumber(phoneNumber));
+
+                            String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                                    () -> new UnauthorizedException("An authentication error occurred")
+                            );
+                            ConfirmOutputCookieLoginWith2FaObscuredEmailAndPhoneNumberDto body = new ConfirmOutputCookieLoginWith2FaObscuredEmailAndPhoneNumberDto(
+                                    "First step of authentication went on successfully, please verify your email or your phoneNumber "
+                                            + "to receive an authentication code via email or via SMS",
+                                    HttpStatus.OK,
+                                    securityUtils.obscureEmail(email),
+                                    securityUtils.obscurePhoneNumber(phoneNumber));
                             return Mono.just(body); // Utilizza Mono.just per avvolgere il risultato
                         }
                     }
