@@ -286,7 +286,6 @@ public class AuthController {
     }
 
     @GetMapping("/logout")
-    @PostMapping("/logout")
     public Mono<ResponseEntity<ConfirmOutputDto>> logout(ServerHttpRequest req, ServerHttpResponse res) {
 
 
@@ -344,6 +343,10 @@ public class AuthController {
         ConfirmOutputDto body = new ConfirmOutputDto("Logged out successfully", HttpStatus.OK);
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(body));
     }
+
+    @PostMapping("/2-factors-authentication/totp/request")
+    public ResponseEntity<ConfirmOutputDto>
+
 
 }
 
