@@ -3,6 +3,7 @@ package backend.app.premier_chat.services;
 import backend.app.premier_chat.Models.Dto.inputDto.UserPostInputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmRegistrationOutputDto;
+import backend.app.premier_chat.Models.Dto.outputDto.JotpMetadataDto;
 import backend.app.premier_chat.Models.Dto.outputDto.JotpWrapperOutputDTO;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.JotpConfiguration;
@@ -148,45 +149,67 @@ public class AuthService {
 
     }
 
-    public void verifyContactBeforeGeneratingTOTP(String preAuthorizationToken, String contact, _2FAStrategy strategy) {
+    public Mono<JotpMetadataDto> verifyContactBeforeGeneratingTOTP(String preAuthorizationToken, String contact, _2FAStrategy strategy) {
 
-        UUID userId;
+        return Mono.fromCallable(() -> {
 
-        try {
-            userId = jwtUtils.extractJwtUsefulClaims(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN, false)
-                    .getSub();
-        } catch (Exception e) {
-            throw new ForbiddenException("You don't have the permissions to access this resource");
-        }
+            UUID userId;
 
-        User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
-                () -> new ForbiddenException("You don't have the permissions to access this resource")
-        );
-
-        switch (strategy) {
-            case EMAIL -> {
-                if (!contact.equals(user.getEmail())) {
-                    jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
-                    throw new UnauthorizedException("Email entered is wrong");
-                }
-                // Codice per autennticazione a 2 fattori a 6 cifre, valido 60 secondi
-                JotpWrapperOutputDTO wrapper;
-                try {
-                    wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
-                } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
-                    throw new InternalServerErrorException("Error while generating 2 factor authentication code. " +
-                            e.getMessage());
-                }
-                notificationService.sendEmail(
-                        user.getEmail(),
-                        "Your code to access Premier Chat", "Hello " + user.getUsername() + "\n\n" +
-                                "Here is your code to access Premier Chat: " + wrapper.getTOTP() + "\n\n" +
-                                "It's valid " + jotpConfiguration.getPeriod() + " seconds."
-
-                );
+            try {
+                userId = jwtUtils.extractJwtUsefulClaims(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN, false)
+                        .getSub();
+            } catch (Exception e) {
+                throw new ForbiddenException("You don't have the permissions to access this resource");
             }
-            default -> throw new UnauthorizedException();
-        }
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            if (!user.get_2FAStrategies().contains(strategy))
+                throw new BadRequestException(strategy.name().toLowerCase() + " strategy for 2 factor authentication is not enabled for this user");
+
+            // Codice per autennticazione a 2 fattori a 6 cifre, valido 60 secondi
+            JotpWrapperOutputDTO wrapper;
+            try {
+                wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+                throw new InternalServerErrorException("Error while generating 2 factor authentication code. " +
+                        e.getMessage());
+            }
+
+            switch (strategy) {
+                case EMAIL -> {
+                    if (!contact.equals(user.getEmail())) {
+                        jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
+                        throw new UnauthorizedException("Email entered is wrong");
+                    }
+                    notificationService.sendEmail(
+                            user.getEmail(),
+                            "Your code to access Premier Chat", "Hello " + user.getUsername() + "\n\n" +
+                                    "Here is your code to access Premier Chat: " + wrapper.getTOTP() + "\n\n" +
+                                    "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+
+                    );
+                }
+                case SMS -> {
+                    if (!contact.equals(user.getPhoneNumber())) {
+                        jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
+                        throw new UnauthorizedException("Phone Number entered is wrong");
+                    }
+                    notificationService.sendSms(
+                            user.getPhoneNumber(), "Hello " + user.getUsername() +
+                                    ". Here is your code to access Premier Chat: " + wrapper.getTOTP() + "\n\n" +
+                                    "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                    );
+                }
+                default -> throw new UnauthorizedException();
+            }
+
+            return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+
+        });
+
 
     }
 

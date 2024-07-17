@@ -1,15 +1,17 @@
 package backend.app.premier_chat.controllers;
 
-import backend.app.premier_chat.Models.Dto.inputDto.LoginDto;
-import backend.app.premier_chat.Models.Dto.inputDto.UserPostInputDto;
+import backend.app.premier_chat.Models.Dto.inputDto.*;
 import backend.app.premier_chat.Models.Dto.outputDto.*;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
+import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.Models.enums._2FAStrategy;
+import backend.app.premier_chat.exception_handling.BadRequestException;
+import backend.app.premier_chat.exception_handling.ForbiddenException;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.security.JwtUtils;
@@ -52,6 +54,9 @@ public class AuthController {
 
     @Autowired
     private SecurityUtils securityUtils;
+
+    @Autowired
+    private JotpConfiguration jotpConfiguration;
 
     @PostMapping("/account/register")
     public Mono<ResponseEntity<ConfirmRegistrationOutputDto>> register(@Valid @RequestBody Mono<UserPostInputDto> userInput) {
@@ -345,7 +350,63 @@ public class AuthController {
     }
 
     @PostMapping("/2-factors-authentication/totp/request")
-    public ResponseEntity<ConfirmOutputDto>
+    public Mono<ResponseEntity<ConfirmWithJotpMetadataDto>> requestTotpFor2Fa(@Valid @RequestBody Mono<AbstractVerificationBody> bodyMono, ServerHttpRequest req) {
+
+        // Per ora tralascio la strategia HEADER su cui tornerò in un secondo momento
+
+        return bodyMono.flatMap(bodyInput -> {
+
+            Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+
+            if (cookies.get("__pre_authorization_token") == null)
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            HttpCookie preAuthCookie = cookies.get("__pre_authorization_token");
+
+            if (preAuthCookie.getValue().isBlank())
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            String preAuthorizationToken = preAuthCookie.getValue();
+
+            UUID userId = jwtUtils.extractJwtUsefulClaims(
+                    preAuthorizationToken,
+                    TokenType.PRE_AUTHORIZATION_TOKEN,
+                    false
+            ).getSub();
+
+            _2FAStrategy strategy = null;
+            String contact = "";
+            String message = "";
+
+            if (bodyInput instanceof EmailVerificationDto) {
+                strategy = _2FAStrategy.EMAIL;
+                contact = ((EmailVerificationDto) bodyInput).getEmail();
+                message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
+                        "seconds has been sent to your email address";
+            }
+            else if (bodyInput instanceof PhoneNumberVerificationDto) {
+                strategy = _2FAStrategy.SMS;
+                contact = ((PhoneNumberVerificationDto) bodyInput).getPhoneNumber();
+                message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
+                        "seconds has been sent via SMS to your phone number";
+            }
+            if (strategy == null || contact.isEmpty() || message.isBlank())
+                throw new BadRequestException();
+            final String _message = message;
+
+            return authService.verifyContactBeforeGeneratingTOTP(preAuthorizationToken, contact, strategy)
+                    .map(jotpMetadataDto -> {
+
+                        ConfirmWithJotpMetadataDto body = new ConfirmWithJotpMetadataDto(_message, HttpStatus.OK, jotpMetadataDto);
+                        return ResponseEntity.status(HttpStatus.OK).body(body);
+
+                    });
+
+
+
+        });
+
+    }
 
 
 }

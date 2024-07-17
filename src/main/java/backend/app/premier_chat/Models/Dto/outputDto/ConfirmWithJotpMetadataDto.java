@@ -8,10 +8,14 @@ import org.springframework.http.HttpStatus;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class ConfirmWithJotpMetadataDto extends ConfirmOutputDto {
 
     private long TotpGeneratedAt;
     private long TotpExpiresAt;
 
+    public ConfirmWithJotpMetadataDto(String message, HttpStatus httpStatus, JotpMetadataDto metadata) {
+        super(message, httpStatus);
+        TotpGeneratedAt = metadata.getTotpGeneratedAt();
+        TotpExpiresAt = metadata.getTotpExpiresAt();
+    }
 }
