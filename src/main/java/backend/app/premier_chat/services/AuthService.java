@@ -149,7 +149,7 @@ public class AuthService {
 
     }
 
-    public Mono<JotpMetadataDto> generateTotpToVerifyPhoneNumberForSms2FaActivation(UUID userId) {
+    public Mono<JotpMetadataDto> generateTotpToVerifyContact(UUID userId, _2FAStrategy strategy) {
 
         return Mono.fromCallable(() -> {
 
@@ -157,20 +157,45 @@ public class AuthService {
                     () -> new ForbiddenException("You don't have the permissions to access this resource")
             );
 
-            if (user.get_2FAStrategies().contains(_2FAStrategy.SMS))
-                throw new BadRequestException("2 Factors Authentication with SMS strategy is already enabled for your phone number");
+            switch (strategy) {
+                case SMS -> {
 
-            if (user.getPhoneNumber() == null || user.getPhoneNumber().isBlank())
-                throw new BadRequestException("You don't have provided a valid phone number");
+                    if (user.getPhoneNumber() == null || user.getPhoneNumber().isBlank())
+                        throw new BadRequestException("You don't have provided a valid phone number");
 
-            JotpWrapperOutputDTO wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+                    if (user.isPhoneNumberVerified())
+                        throw new BadRequestException("Your phone number has already been verified");
 
-            notificationService.sendSms(user.getPhoneNumber(), "Hello " + user.getUsername() +
-                    ". Here is your code to activate 2 factors authentication associated to this phone number: "
-                    + wrapper.getTOTP() + "\n\n" + "It's valid " + jotpConfiguration.getPeriod() + " seconds."
-            );
+                    JotpWrapperOutputDTO wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
 
-            return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+                    notificationService.sendSms(user.getPhoneNumber(), "Hello " + user.getUsername() +
+                            ". Here is your code to verify your phone number: "
+                            + wrapper.getTOTP() + "\n\n" + "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                    );
+
+                    return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+                }
+                case EMAIL -> {
+
+                    if (user.getEmail() == null || user.getPhoneNumber().isBlank())
+                        throw new BadRequestException("You don't have provided a valid email");
+
+                    if (user.isEmailVerified())
+                        throw new BadRequestException("Your email has already been verified");
+
+                    JotpWrapperOutputDTO wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+
+                    notificationService.sendEmail(user.getEmail(), "Your email verification code",
+                            "Hello " + user.getUsername() +
+                                    ". Here is your code to verify your email address: "
+                                    + wrapper.getTOTP() + "\n\n" + "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                    );
+
+                    return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+                }
+                default -> throw new ForbiddenException("You don't have the permissions to access this resource");
+            }
+
 
         });
 
@@ -300,6 +325,18 @@ public class AuthService {
                     () -> new ForbiddenException("You don't have permissions to access this resource")
             );
 
+            switch (strategy) {
+                case SMS -> {
+                    if (!user.isPhoneNumberVerified())
+                        throw new BadRequestException("Cannot enable 2 factors authentication via SMS because your phone number hasn't been verified");
+                }
+                case EMAIL -> {
+                    if (!user.isEmailVerified())
+                        throw new BadRequestException("Cannot enable 2 factors authentication via email because your email address hasn't been verified");
+                }
+                default -> throw new ForbiddenException("You don't have the permissions to access this resource");
+            }
+
             if (user.get_2FAStrategies().contains(strategy))
                 throw new BadRequestException(
                         "Cannot proceed because 2 factors authentication via " + strategy.name().toLowerCase() + " " +
@@ -319,6 +356,7 @@ public class AuthService {
 
     }
 
+    public Mono<ConfirmOutputDto> updateEmail()
 
 
 }

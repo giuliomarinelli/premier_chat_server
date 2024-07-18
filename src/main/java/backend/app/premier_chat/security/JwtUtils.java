@@ -53,6 +53,8 @@ public class JwtUtils {
 
     private final PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration;
 
+    private final EmailVerificationTokenConfiguration emailVerificationTokenConfiguration;
+
     private final String jwtIssuer;
 
     public JwtUtils(
@@ -65,6 +67,7 @@ public class JwtUtils {
             RevokedTokenRepository revokedTokenRepository,
             AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
             PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration,
+            EmailVerificationTokenConfiguration emailVerificationTokenConfiguration,
             @Value("${spring.configuration.jwt.claims.iss}") String jwtIssuer
     ) {
         this.accessTokenConfiguration = accessTokenConfiguration;
@@ -76,8 +79,8 @@ public class JwtUtils {
         this.revokedTokenRepository = revokedTokenRepository;
         this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
         this.phoneNumberVerificationTokenConfiguration = phoneNumberVerificationTokenConfiguration;
+        this.emailVerificationTokenConfiguration = emailVerificationTokenConfiguration;
         this.jwtIssuer = jwtIssuer;
-        System.out.println(this);
     }
 
     private byte[] generateSecretKeyBytes(String base64Secret) {
@@ -94,6 +97,7 @@ public class JwtUtils {
             case PRE_AUTHORIZATION_TOKEN -> jwtConfiguration = preAuthorizationTokenConfiguration;
             case ACTIVATION_TOKEN -> jwtConfiguration = activationTokenConfiguration;
             case PHONE_NUMBER_VERIFICATION_TOKEN -> jwtConfiguration = phoneNumberVerificationTokenConfiguration;
+            case EMAIL_VERIFICATION_TOKEN -> jwtConfiguration = emailVerificationTokenConfiguration;
             default -> throw new UnauthorizedException();
         }
         return jwtConfiguration;

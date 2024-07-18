@@ -2,12 +2,15 @@ package backend.app.premier_chat.controllers;
 
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataDto;
+import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataWithObscuredEmailDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataWithObscuredPhoneNumberDto;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.TokenPair;
+import backend.app.premier_chat.Models.configuration.jwt_configuration.EmailVerificationTokenConfiguration;
 import backend.app.premier_chat.Models.configuration.jwt_configuration.PhoneNumberVerificationTokenConfiguration;
+import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
@@ -41,7 +44,8 @@ public class AccountController {
             UserRepository userRepository,
             SecurityUtils securityUtils,
             JotpConfiguration jotpConfiguration,
-            PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration
+            PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration,
+            EmailVerificationTokenConfiguration emailVerificationTokenConfiguration
     ) {
         this.authService = authService;
         this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
@@ -51,6 +55,7 @@ public class AccountController {
         this.securityUtils = securityUtils;
         this.jotpConfiguration = jotpConfiguration;
         this.phoneNumberVerificationTokenConfiguration = phoneNumberVerificationTokenConfiguration;
+        this.emailVerificationTokenConfiguration = emailVerificationTokenConfiguration;;
     }
 
     private final AuthService authService;
@@ -69,43 +74,107 @@ public class AccountController {
 
     private final PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration;
 
-    @PatchMapping("/2-factors-authentication/totp/sms/enable/request")
-    public Mono<ResponseEntity<ConfirmWithJotpMetadataWithObscuredPhoneNumberDto>> requestTotpForSms2FaActivation(ServerHttpRequest req, ServerHttpResponse res) {
+    private final EmailVerificationTokenConfiguration emailVerificationTokenConfiguration;
+
+    @PatchMapping("/contact-verification/{strategy}")
+    public Mono<ResponseEntity<ConfirmOutputDto>> requestTotpFor2FaActivation(@PathVariable String strategy, ServerHttpRequest req, ServerHttpResponse res) {
+
+        _2FAStrategy _strategy;
+
+        try {
+            _strategy = _2FAStrategy.valueOf(strategy.replaceAll("-", "_").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed verification strategy field");
+        }
 
         String accessToken = jwtUtils.extractHttpTokensFromContext(req, AuthorizationStrategy.COOKIE).getAccessToken();
 
         UUID userId = jwtUtils.extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true).getSub();
 
-        return authService.generateTotpToVerifyPhoneNumberForSms2FaActivation(userId).map(metadata -> {
-            String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
-                    () -> new ForbiddenException("You don't have the permissions to access this resource")
-            );
-            ConfirmWithJotpMetadataWithObscuredPhoneNumberDto body = new ConfirmWithJotpMetadataWithObscuredPhoneNumberDto(
-                    "An SMS was sent to your number with a verification " + jotpConfiguration.getDigits()
-                            + " digits code.",
-                    HttpStatus.OK,
-                    metadata,
-                    securityUtils.obscurePhoneNumber(phoneNumber)
-            );
+        User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                () -> new ForbiddenException("You don't have the permissions to access this resource")
+        );
 
-            String phoneNumberVerificationToken = jwtUtils.generateToken(
-                    userId,
-                    TokenType.PHONE_NUMBER_VERIFICATION_TOKEN,
-                    false);
+        switch (_strategy) {
 
-            res.addCookie(ResponseCookie.from("__phone_number_verification_token", phoneNumberVerificationToken)
-                    .domain(securityCookieConfiguration.getDomain())
-                    .httpOnly(securityCookieConfiguration.isHttpOnly())
-                    .path(securityCookieConfiguration.getPath())
-                    .sameSite(securityCookieConfiguration.getSameSite())
-                    .secure(securityCookieConfiguration.isSecure())
-                    .maxAge(phoneNumberVerificationTokenConfiguration.getExpiresIn() / 1000)
-                    .build());
+            case SMS -> {
 
-            return ResponseEntity.status(HttpStatus.OK).body(body);
-        });
+                if (!user.isPhoneNumberVerified())
+                    throw new BadRequestException(
+                            "Phone number hasn't been verified. Please verify it before activating " +
+                                    "2 factors authentication with SMS"
+                    );
+
+                return authService.generateTotpToVerifyContact(userId, _strategy).map(metadata -> {
+                    String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
+                            () -> new ForbiddenException("You don't have the permissions to access this resource")
+                    );
+                    ConfirmWithJotpMetadataWithObscuredPhoneNumberDto body = new ConfirmWithJotpMetadataWithObscuredPhoneNumberDto(
+                            "An SMS was sent to your number with a verification " + jotpConfiguration.getDigits()
+                                    + " digits code.",
+                            HttpStatus.OK,
+                            metadata,
+                            securityUtils.obscurePhoneNumber(phoneNumber)
+                    );
+
+                    String phoneNumberVerificationToken = jwtUtils.generateToken(
+                            userId,
+                            TokenType.PHONE_NUMBER_VERIFICATION_TOKEN,
+                            false);
+
+                    res.addCookie(ResponseCookie.from("__phone_number_verification_token", phoneNumberVerificationToken)
+                            .domain(securityCookieConfiguration.getDomain())
+                            .httpOnly(securityCookieConfiguration.isHttpOnly())
+                            .path(securityCookieConfiguration.getPath())
+                            .sameSite(securityCookieConfiguration.getSameSite())
+                            .secure(securityCookieConfiguration.isSecure())
+                            .maxAge(phoneNumberVerificationTokenConfiguration.getExpiresIn() / 1000)
+                            .build());
+
+                    return ResponseEntity.status(HttpStatus.OK).body(body);
+
+                });
+            }
+            case EMAIL -> {
+
+                return authService.generateTotpToVerifyContact(userId, _strategy).map(metadata -> {
+                    String email = userRepository.findEmailByUserId(userId).orElseThrow(
+                            () -> new ForbiddenException("You don't have the permissions to access this resource")
+                    );
+                    ConfirmWithJotpMetadataWithObscuredEmailDto body = new ConfirmWithJotpMetadataWithObscuredEmailDto(
+                            "An email was sent to your address with a verification " + jotpConfiguration.getDigits()
+                                    + " digits code.",
+                            HttpStatus.OK,
+                            metadata,
+                            securityUtils.obscureEmail(email)
+                    );
+
+                    String emailVerificationToken = jwtUtils.generateToken(
+                            userId,
+                            TokenType.EMAIL_VERIFICATION_TOKEN,
+                            false);
+
+                    res.addCookie(ResponseCookie.from("__email_verification_token", emailVerificationToken)
+                            .domain(securityCookieConfiguration.getDomain())
+                            .httpOnly(securityCookieConfiguration.isHttpOnly())
+                            .path(securityCookieConfiguration.getPath())
+                            .sameSite(securityCookieConfiguration.getSameSite())
+                            .secure(securityCookieConfiguration.isSecure())
+                            .maxAge(phoneNumberVerificationTokenConfiguration.getExpiresIn() / 1000)
+                            .build());
+
+                    return ResponseEntity.status(HttpStatus.OK).body(body);
+
+                });
+
+            }
+            default -> throw new ForbiddenException("You don't have the permissions to access this resource");
+        }
+
 
     }
+
+
 
     @PatchMapping("/2-factors-authentication/totp/{strategy}/disable")
     public Mono<ResponseEntity<ConfirmOutputDto>> disableSms2Fa(@PathVariable String strategy, ServerHttpRequest req) {
