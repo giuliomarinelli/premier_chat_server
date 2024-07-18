@@ -76,8 +76,8 @@ public class AccountController {
 
     private final EmailVerificationTokenConfiguration emailVerificationTokenConfiguration;
 
-    @PatchMapping("/contact-verification/{strategy}")
-    public Mono<ResponseEntity<ConfirmOutputDto>> requestTotpFor2FaActivation(@PathVariable String strategy, ServerHttpRequest req, ServerHttpResponse res) {
+    @GetMapping("/contact-verification/{strategy}/request")
+    public Mono<ResponseEntity<ConfirmOutputDto>> requestTotpForContactVerification(@PathVariable String strategy, ServerHttpRequest req, ServerHttpResponse res) {
 
         _2FAStrategy _strategy;
 
@@ -174,10 +174,12 @@ public class AccountController {
 
     }
 
+    @PostMapping("/contact-verification/{strategy}/verify-totp")
+    public Mono<ResponseEntity<ConfirmOutputDto>>
 
 
-    @PatchMapping("/2-factors-authentication/totp/{strategy}/disable")
-    public Mono<ResponseEntity<ConfirmOutputDto>> disableSms2Fa(@PathVariable String strategy, ServerHttpRequest req) {
+    @PostMapping("/2-factors-authentication/totp/{strategy}/disable")
+    public Mono<ResponseEntity<ConfirmOutputDto>> disableFa(@PathVariable String strategy, ServerHttpRequest req) {
 
         _2FAStrategy _strategy;
 
@@ -192,6 +194,26 @@ public class AccountController {
         UUID userId = jwtUtils.extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true).getSub();
 
         return authService.disable2Fa(userId, _strategy)
+                .map(ResponseEntity::ok);
+
+    }
+
+    @PostMapping("/2-factors-authentication/totp/{strategy}/enable")
+    public Mono<ResponseEntity<ConfirmOutputDto>> disableSms2Fa(@PathVariable String strategy, ServerHttpRequest req) {
+
+        _2FAStrategy _strategy;
+
+        try {
+            _strategy = _2FAStrategy.valueOf(strategy.replaceAll("-", "_").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed 2 factors authentication strategy field");
+        }
+
+        String accessToken = jwtUtils.extractHttpTokensFromContext(req, AuthorizationStrategy.COOKIE).getAccessToken();
+
+        UUID userId = jwtUtils.extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true).getSub();
+
+        return authService.enable2Fa(userId, _strategy)
                 .map(ResponseEntity::ok);
 
     }
