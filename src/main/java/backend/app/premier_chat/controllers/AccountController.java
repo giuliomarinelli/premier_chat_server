@@ -1,5 +1,6 @@
 package backend.app.premier_chat.controllers;
 
+import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataWithObscuredPhoneNumberDto;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
@@ -10,6 +11,8 @@ import backend.app.premier_chat.Models.configuration.jwt_configuration.PhoneNumb
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
+import backend.app.premier_chat.Models.enums._2FAStrategy;
+import backend.app.premier_chat.exception_handling.BadRequestException;
 import backend.app.premier_chat.exception_handling.ForbiddenException;
 import backend.app.premier_chat.exception_handling.NotFoundException;
 import backend.app.premier_chat.repositories.jpa.UserRepository;
@@ -21,9 +24,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
@@ -68,7 +69,7 @@ public class AccountController {
 
     private final PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration;
 
-    @GetMapping("/2-factors-authentication/totp/sms/activate/request")
+    @PatchMapping("/2-factors-authentication/totp/sms/enable/request")
     public Mono<ResponseEntity<ConfirmWithJotpMetadataWithObscuredPhoneNumberDto>> requestTotpForSms2FaActivation(ServerHttpRequest req, ServerHttpResponse res) {
 
         String accessToken = jwtUtils.extractHttpTokensFromContext(req, AuthorizationStrategy.COOKIE).getAccessToken();
@@ -103,6 +104,26 @@ public class AccountController {
 
             return ResponseEntity.status(HttpStatus.OK).body(body);
         });
+
+    }
+
+    @PatchMapping("/2-factors-authentication/totp/{strategy}/disable")
+    public Mono<ResponseEntity<ConfirmOutputDto>> disableSms2Fa(@PathVariable String strategy, ServerHttpRequest req) {
+
+        _2FAStrategy _strategy;
+
+        try {
+            _strategy = _2FAStrategy.valueOf(strategy.replaceAll("-", "_").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed 2 factors authentication strategy field");
+        }
+
+        String accessToken = jwtUtils.extractHttpTokensFromContext(req, AuthorizationStrategy.COOKIE).getAccessToken();
+
+        UUID userId = jwtUtils.extractJwtUsefulClaims(accessToken, TokenType.ACCESS_TOKEN, true).getSub();
+
+        return authService.disable2Fa(userId, _strategy)
+                .map(ResponseEntity::ok);
 
     }
 

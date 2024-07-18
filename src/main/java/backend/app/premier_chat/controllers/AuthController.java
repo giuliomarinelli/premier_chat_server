@@ -74,7 +74,7 @@ public class AuthController {
         return userInput.flatMap(authService::register).map(res -> ResponseEntity.status(HttpStatus.CREATED).body(res));
     }
 
-    @GetMapping("/account/activate")
+    @PostMapping("/account/activate")
     public Mono<ResponseEntity<ConfirmOutputDto>> activateAccount(@RequestParam("at") String activationToken) {
         return authService.activateUser(activationToken).map(ResponseEntity::ok);
     }
@@ -297,7 +297,7 @@ public class AuthController {
         }).map(body -> ResponseEntity.status(HttpStatus.OK).body(body));
     }
 
-    @GetMapping("/logout")
+    @PostMapping("/logout")
     public Mono<ResponseEntity<ConfirmOutputDto>> logout(ServerHttpRequest req, ServerHttpResponse res) {
 
 

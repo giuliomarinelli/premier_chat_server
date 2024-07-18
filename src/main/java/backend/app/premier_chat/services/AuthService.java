@@ -265,5 +265,60 @@ public class AuthService {
 
     }
 
+    public Mono<ConfirmOutputDto> disable2Fa(UUID userId, _2FAStrategy strategy) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have permissions to access this resource")
+            );
+
+            if (!user.get_2FAStrategies().contains(strategy))
+                throw new BadRequestException(
+                        "Cannot proceed because 2 factors authentication via " + strategy.name().toLowerCase() + " " +
+                                "isn't enabled"
+                );
+
+            user.get_2FAStrategies().remove(strategy);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "2 factors authentication via " + strategy.name().toLowerCase() + " has been successfully disabled",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
+
+    public Mono<ConfirmOutputDto> enable2Fa(UUID userId, _2FAStrategy strategy) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have permissions to access this resource")
+            );
+
+            if (user.get_2FAStrategies().contains(strategy))
+                throw new BadRequestException(
+                        "Cannot proceed because 2 factors authentication via " + strategy.name().toLowerCase() + " " +
+                                "is already enabled"
+                );
+
+            user.get_2FAStrategies().add(strategy);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "2 factors authentication via " + strategy.name().toLowerCase() + " has been successfully enabled",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
+
+
 
 }

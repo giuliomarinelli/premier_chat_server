@@ -41,6 +41,8 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String email;
 
+    private boolean hasEmailBeenModified;
+
     @JsonIgnore
     private String hashedPassword;
 
@@ -77,6 +79,7 @@ public class User implements UserDetails {
         enabled = false;
         locked = false;
         roles.add(UserRole.USER);
+        hasEmailBeenModified = false;
     }
 
     @Transient
