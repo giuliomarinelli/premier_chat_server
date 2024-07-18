@@ -356,7 +356,53 @@ public class AuthService {
 
     }
 
-    public Mono<ConfirmOutputDto> updateEmail()
+    public Mono<ConfirmOutputDto> updateEmail(String newEmail, UUID userId) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            user.setPreviousEmail(user.getEmail());
+            user.setEmail(newEmail);
+            user.setEmailVerified(false);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "Your email has been successfully updated. You must verify your new email before " +
+                            "you can use it in the app",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
+
+    public Mono<ConfirmOutputDto> updatePhoneNumber(String newPhoneNumber, UUID userId) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            user.setPreviousEmail(user.getPhoneNumber());
+            user.setEmail(newPhoneNumber);
+            user.setPhoneNumberVerified(false);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "Your phone number has been successfully updated. You must verify your new phone " +
+                            "number before you can use it in the app",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
 
 
 }
