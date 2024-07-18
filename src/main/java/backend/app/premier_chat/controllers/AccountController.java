@@ -6,7 +6,9 @@ import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfig
 import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.TokenPair;
+import backend.app.premier_chat.Models.configuration.jwt_configuration.PhoneNumberVerificationTokenConfiguration;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
+import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.ForbiddenException;
 import backend.app.premier_chat.exception_handling.NotFoundException;
@@ -15,6 +17,7 @@ import backend.app.premier_chat.security.JwtUtils;
 import backend.app.premier_chat.security.SecurityUtils;
 import backend.app.premier_chat.services.AuthService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -36,7 +39,8 @@ public class AccountController {
             JwtUtils jwtUtils,
             UserRepository userRepository,
             SecurityUtils securityUtils,
-            JotpConfiguration jotpConfiguration
+            JotpConfiguration jotpConfiguration,
+            PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration
     ) {
         this.authService = authService;
         this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
@@ -45,6 +49,7 @@ public class AccountController {
         this.userRepository = userRepository;
         this.securityUtils = securityUtils;
         this.jotpConfiguration = jotpConfiguration;
+        this.phoneNumberVerificationTokenConfiguration = phoneNumberVerificationTokenConfiguration;
     }
 
     private final AuthService authService;
@@ -60,6 +65,8 @@ public class AccountController {
     private final SecurityUtils securityUtils;
 
     private final JotpConfiguration jotpConfiguration;
+
+    private final PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration;
 
     @GetMapping("/2-factors-authentication/totp/sms/activate/request")
     public Mono<ResponseEntity<ConfirmWithJotpMetadataWithObscuredPhoneNumberDto>> requestTotpForSms2FaActivation(ServerHttpRequest req, ServerHttpResponse res) {
@@ -85,7 +92,14 @@ public class AccountController {
                     TokenType.PHONE_NUMBER_VERIFICATION_TOKEN,
                     false);
 
-
+            res.addCookie(ResponseCookie.from("__phone_number_verification_token", phoneNumberVerificationToken)
+                    .domain(securityCookieConfiguration.getDomain())
+                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                    .path(securityCookieConfiguration.getPath())
+                    .sameSite(securityCookieConfiguration.getSameSite())
+                    .secure(securityCookieConfiguration.isSecure())
+                    .maxAge(phoneNumberVerificationTokenConfiguration.getExpiresIn() / 1000)
+                    .build());
 
             return ResponseEntity.status(HttpStatus.OK).body(body);
         });
