@@ -104,11 +104,8 @@ public class AccountController {
 
             case SMS -> {
 
-                if (!user.isPhoneNumberVerified())
-                    throw new BadRequestException(
-                            "Phone number hasn't been verified. Please verify it before activating " +
-                                    "2 factors authentication with SMS"
-                    );
+                if (user.isPhoneNumberVerified())
+                    throw new BadRequestException("Phone number has been already verified.");
 
                 return authService.generateTotpToVerifyContact(userId, _strategy).map(metadata -> {
                     String phoneNumber = userRepository.findPhoneNumberByUserId(userId).orElseThrow(
@@ -141,6 +138,9 @@ public class AccountController {
                 });
             }
             case EMAIL -> {
+
+                if (user.isEmailVerified())
+                    throw new BadRequestException("Email has been already verified.");
 
                 return authService.generateTotpToVerifyContact(userId, _strategy).map(metadata -> {
                     String email = userRepository.findEmailByUserId(userId).orElseThrow(
