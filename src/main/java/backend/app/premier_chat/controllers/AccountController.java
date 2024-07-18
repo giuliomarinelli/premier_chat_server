@@ -1,5 +1,6 @@
 package backend.app.premier_chat.controllers;
 
+import backend.app.premier_chat.Models.Dto.inputDto.TotpInputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmWithJotpMetadataWithObscuredEmailDto;
@@ -22,6 +23,8 @@ import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.security.JwtUtils;
 import backend.app.premier_chat.security.SecurityUtils;
 import backend.app.premier_chat.services.AuthService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,7 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -55,7 +59,8 @@ public class AccountController {
         this.securityUtils = securityUtils;
         this.jotpConfiguration = jotpConfiguration;
         this.phoneNumberVerificationTokenConfiguration = phoneNumberVerificationTokenConfiguration;
-        this.emailVerificationTokenConfiguration = emailVerificationTokenConfiguration;;
+        this.emailVerificationTokenConfiguration = emailVerificationTokenConfiguration;
+        ;
     }
 
     private final AuthService authService;
@@ -175,7 +180,100 @@ public class AccountController {
     }
 
     @PostMapping("/contact-verification/{strategy}/verify-totp")
-    public Mono<ResponseEntity<ConfirmOutputDto>>
+    public Mono<ResponseEntity<ConfirmOutputDto>> validateNewContact(@Valid @RequestBody Mono<TotpInputDto> bodyInputMono, @PathVariable String strategy, ServerHttpRequest req) {
+
+        return bodyInputMono.flatMap(bodyInput -> {
+
+            String totp = bodyInput.totp();
+
+            _2FAStrategy _strategy;
+
+            try {
+                _strategy = _2FAStrategy.valueOf(strategy.replaceAll("-", "_").toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Malformed verification strategy field");
+            }
+
+            Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+
+            switch (_strategy) {
+
+                case SMS -> {
+
+                    HttpCookie phoneNumberVerificationTokenCookie = cookies.get("__phone_number_verification_token");
+
+                    if (phoneNumberVerificationTokenCookie == null)
+                        throw new ForbiddenException("You don't have the permissions to access this resource");
+
+                    String phoneNumberVerificationToken = phoneNumberVerificationTokenCookie.getValue();
+
+                    if (phoneNumberVerificationToken.isBlank())
+                        throw new ForbiddenException("You don't have the permissions to access this resource");
+
+                    UUID userId = jwtUtils.extractJwtUsefulClaims(phoneNumberVerificationToken,
+                            TokenType.PHONE_NUMBER_VERIFICATION_TOKEN,
+                            false
+                    ).getSub();
+
+                    User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                            () -> new ForbiddenException("You don't have the permissions to access this resource")
+                    );
+
+                    if (!securityUtils.verifyJotpTOTP(user.getTotpSecret(), totp)) {
+                        jwtUtils.revokeToken(phoneNumberVerificationToken, TokenType.PHONE_NUMBER_VERIFICATION_TOKEN);
+                        throw new BadRequestException("Wrong verification code");
+                    }
+
+                    user.setPhoneNumberVerified(true);
+
+                    userRepository.save(user);
+
+                    return Mono.just(new ConfirmOutputDto("Phone number has been verified successfully", HttpStatus.OK));
+
+                }
+
+                case EMAIL -> {
+
+                    HttpCookie emailVerificationTokenCookie = cookies.get("__email_verification_token");
+
+                    if (emailVerificationTokenCookie == null)
+                        throw new ForbiddenException("You don't have the permissions to access this resource");
+
+                    String emailNumberVerificationToken = emailVerificationTokenCookie.getValue();
+
+                    if (emailNumberVerificationToken.isBlank())
+                        throw new ForbiddenException("You don't have the permissions to access this resource");
+
+                    UUID userId = jwtUtils.extractJwtUsefulClaims(emailNumberVerificationToken,
+                            TokenType.EMAIL_VERIFICATION_TOKEN,
+                            false
+                    ).getSub();
+
+                    User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                            () -> new ForbiddenException("You don't have the permissions to access this resource")
+                    );
+
+                    if (!securityUtils.verifyJotpTOTP(user.getTotpSecret(), totp)) {
+                        jwtUtils.revokeToken(emailNumberVerificationToken, TokenType.EMAIL_VERIFICATION_TOKEN);
+                        throw new BadRequestException("Wrong verification code");
+                    }
+
+                    user.setEmailVerified(true);
+
+                    userRepository.save(user);
+
+                    return Mono.just(new ConfirmOutputDto("Email has been verified successfully", HttpStatus.OK));
+
+                }
+
+                default -> throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            }
+
+
+        }).map(body -> ResponseEntity.status(HttpStatus.OK).body(body));
+
+    }
 
 
     @PostMapping("/2-factors-authentication/totp/{strategy}/disable")
