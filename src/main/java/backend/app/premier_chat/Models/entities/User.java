@@ -41,6 +41,10 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String email;
 
+    private boolean emailVerified;
+
+    private String previousEmail;
+
     @JsonIgnore
     private String hashedPassword;
 
@@ -51,6 +55,10 @@ public class User implements UserDetails {
     private List<_2FAStrategy> _2FAStrategies = new ArrayList<>(); // Strategie di 2FA attive e disponibili all'uso
 
     private String phoneNumber;
+
+    private String previousPhoneNumber;
+
+    private boolean phoneNumberVerified;
 
     @JsonIgnore
     private String totpSecret;
@@ -77,6 +85,8 @@ public class User implements UserDetails {
         enabled = false;
         locked = false;
         roles.add(UserRole.USER);
+        emailVerified = true;
+        phoneNumberVerified = false;
     }
 
     @Transient

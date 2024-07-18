@@ -16,9 +16,9 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.codec.binary.Base64;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpCookie;
@@ -34,32 +34,54 @@ import java.util.UUID;
 @Log4j2
 public class JwtUtils {
 
-    @Autowired
-    private AccessTokenConfiguration accessTokenConfiguration;
 
-    @Autowired
-    private RefreshTokenConfiguration refreshTokenConfiguration;
+    private final AccessTokenConfiguration accessTokenConfiguration;
 
-    @Autowired
-    private WsAccessTokenConfiguration wsAccessTokenConfiguration;
+    private final RefreshTokenConfiguration refreshTokenConfiguration;
 
-    @Autowired
-    private WsRefreshTokenConfiguration wsRefreshTokenConfiguration;
+    private final WsAccessTokenConfiguration wsAccessTokenConfiguration;
 
-    @Autowired
-    private PreAuthorizationTokenConfiguration preAuthorizationTokenConfiguration;
+    private final WsRefreshTokenConfiguration wsRefreshTokenConfiguration;
 
-    @Autowired
-    private ActivationTokenConfiguration activationTokenConfiguration;
+    private final PreAuthorizationTokenConfiguration preAuthorizationTokenConfiguration;
 
-    @Autowired
-    private RevokedTokenRepository revokedTokenRepository;
+    private final ActivationTokenConfiguration activationTokenConfiguration;
 
-    @Autowired
-    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+    private final RevokedTokenRepository revokedTokenRepository;
 
-    @Value("${spring.configuration.jwt.claims.iss}")
-    private String jwtIssuer;
+    private final AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+
+    private final PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration;
+
+    private final EmailVerificationTokenConfiguration emailVerificationTokenConfiguration;
+
+    private final String jwtIssuer;
+
+    public JwtUtils(
+            AccessTokenConfiguration accessTokenConfiguration,
+            RefreshTokenConfiguration refreshTokenConfiguration,
+            WsAccessTokenConfiguration wsAccessTokenConfiguration,
+            WsRefreshTokenConfiguration wsRefreshTokenConfiguration,
+            PreAuthorizationTokenConfiguration preAuthorizationTokenConfiguration,
+            ActivationTokenConfiguration activationTokenConfiguration,
+            RevokedTokenRepository revokedTokenRepository,
+            AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
+            PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration,
+            EmailVerificationTokenConfiguration emailVerificationTokenConfiguration,
+            @Value("${spring.configuration.jwt.claims.iss}") String jwtIssuer
+    ) {
+        this.accessTokenConfiguration = accessTokenConfiguration;
+        this.refreshTokenConfiguration = refreshTokenConfiguration;
+        this.wsAccessTokenConfiguration = wsAccessTokenConfiguration;
+        this.wsRefreshTokenConfiguration = wsRefreshTokenConfiguration;
+        this.preAuthorizationTokenConfiguration = preAuthorizationTokenConfiguration;
+        this.activationTokenConfiguration = activationTokenConfiguration;
+        this.revokedTokenRepository = revokedTokenRepository;
+        this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
+        this.phoneNumberVerificationTokenConfiguration = phoneNumberVerificationTokenConfiguration;
+        this.emailVerificationTokenConfiguration = emailVerificationTokenConfiguration;
+        this.jwtIssuer = jwtIssuer;
+    }
 
     private byte[] generateSecretKeyBytes(String base64Secret) {
         return Base64.decodeBase64(base64Secret);
@@ -74,6 +96,8 @@ public class JwtUtils {
             case WS_REFRESH_TOKEN -> jwtConfiguration = wsRefreshTokenConfiguration;
             case PRE_AUTHORIZATION_TOKEN -> jwtConfiguration = preAuthorizationTokenConfiguration;
             case ACTIVATION_TOKEN -> jwtConfiguration = activationTokenConfiguration;
+            case PHONE_NUMBER_VERIFICATION_TOKEN -> jwtConfiguration = phoneNumberVerificationTokenConfiguration;
+            case EMAIL_VERIFICATION_TOKEN -> jwtConfiguration = emailVerificationTokenConfiguration;
             default -> throw new UnauthorizedException();
         }
         return jwtConfiguration;

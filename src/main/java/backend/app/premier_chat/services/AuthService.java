@@ -3,6 +3,7 @@ package backend.app.premier_chat.services;
 import backend.app.premier_chat.Models.Dto.inputDto.UserPostInputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmOutputDto;
 import backend.app.premier_chat.Models.Dto.outputDto.ConfirmRegistrationOutputDto;
+import backend.app.premier_chat.Models.Dto.outputDto.JotpMetadataDto;
 import backend.app.premier_chat.Models.Dto.outputDto.JotpWrapperOutputDTO;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
 import backend.app.premier_chat.Models.configuration.JotpConfiguration;
@@ -148,45 +149,119 @@ public class AuthService {
 
     }
 
-    public void verifyContactBeforeGeneratingTOTP(String preAuthorizationToken, String contact, _2FAStrategy strategy) {
+    public Mono<JotpMetadataDto> generateTotpToVerifyContact(UUID userId, _2FAStrategy strategy) {
 
-        UUID userId;
+        return Mono.fromCallable(() -> {
 
-        try {
-            userId = jwtUtils.extractJwtUsefulClaims(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN, false)
-                    .getSub();
-        } catch (Exception e) {
-            throw new ForbiddenException("You don't have the permissions to access this resource");
-        }
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
 
-        User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
-                () -> new ForbiddenException("You don't have the permissions to access this resource")
-        );
+            switch (strategy) {
+                case SMS -> {
 
-        switch (strategy) {
-            case EMAIL -> {
-                if (!contact.equals(user.getEmail())) {
-                    jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
-                    throw new UnauthorizedException("Email entered is wrong");
+                    if (user.getPhoneNumber() == null || user.getPhoneNumber().isBlank())
+                        throw new BadRequestException("You don't have provided a valid phone number");
+
+                    if (user.isPhoneNumberVerified())
+                        throw new BadRequestException("Your phone number has already been verified");
+
+                    JotpWrapperOutputDTO wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+
+                    notificationService.sendSms(user.getPhoneNumber(), "Hello " + user.getUsername() +
+                            ". Here is your code to verify your phone number: "
+                            + wrapper.getTOTP() + "\n\n" + "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                    );
+
+                    return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
                 }
-                // Codice per autennticazione a 2 fattori a 6 cifre, valido 60 secondi
-                JotpWrapperOutputDTO wrapper;
-                try {
-                    wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
-                } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
-                    throw new InternalServerErrorException("Error while generating 2 factor authentication code. " +
-                            e.getMessage());
-                }
-                notificationService.sendEmail(
-                        user.getEmail(),
-                        "Your code to access Premier Chat", "Hello " + user.getUsername() + "\n\n" +
-                                "Here is your code to access Premier Chat: " + wrapper.getTOTP() + "\n\n" +
-                                "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                case EMAIL -> {
 
-                );
+                    if (user.getEmail() == null || user.getPhoneNumber().isBlank())
+                        throw new BadRequestException("You don't have provided a valid email");
+
+                    if (user.isEmailVerified())
+                        throw new BadRequestException("Your email has already been verified");
+
+                    JotpWrapperOutputDTO wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+
+                    notificationService.sendEmail(user.getEmail(), "Your email verification code",
+                            "Hello " + user.getUsername() +
+                                    ". Here is your code to verify your email address: "
+                                    + wrapper.getTOTP() + "\n\n" + "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                    );
+
+                    return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+                }
+                default -> throw new ForbiddenException("You don't have the permissions to access this resource");
             }
-            default -> throw new UnauthorizedException();
-        }
+
+
+        });
+
+    }
+
+    public Mono<JotpMetadataDto> verifyContactBeforeGeneratingTOTP(String preAuthorizationToken, String contact, _2FAStrategy strategy) {
+
+        return Mono.fromCallable(() -> {
+
+            UUID userId;
+
+            try {
+                userId = jwtUtils.extractJwtUsefulClaims(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN, false)
+                        .getSub();
+            } catch (Exception e) {
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+            }
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            if (!user.get_2FAStrategies().contains(strategy))
+                throw new BadRequestException(strategy.name().toLowerCase() + " strategy for 2 factor authentication is not enabled for this user");
+
+            // Codice per autennticazione a 2 fattori a 6 cifre, valido 60 secondi
+            JotpWrapperOutputDTO wrapper;
+            try {
+                wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+                throw new InternalServerErrorException("Error while generating 2 factor authentication code. " +
+                        e.getMessage());
+            }
+
+            switch (strategy) {
+                case EMAIL -> {
+                    if (!contact.equals(user.getEmail())) {
+                        jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
+                        throw new UnauthorizedException("Email entered is wrong");
+                    }
+                    notificationService.sendEmail(
+                            user.getEmail(),
+                            "Your code to access Premier Chat", "Hello " + user.getUsername() + "\n\n" +
+                                    "Here is your code to access Premier Chat: " + wrapper.getTOTP() + "\n\n" +
+                                    "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+
+                    );
+                }
+                case SMS -> {
+                    if (!contact.equals(user.getPhoneNumber())) {
+                        jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
+                        throw new UnauthorizedException("Phone Number entered is wrong");
+                    }
+                    notificationService.sendSms(
+                            user.getPhoneNumber(), "Hello " + user.getUsername() +
+                                    ". Here is your code to access Premier Chat: " + wrapper.getTOTP() + "\n\n" +
+                                    "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+                    );
+                }
+                default -> throw new UnauthorizedException();
+            }
+
+            return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+
+        });
+
 
     }
 
@@ -212,6 +287,120 @@ public class AuthService {
         );
 
         return tokensMap;
+
+    }
+
+    public Mono<ConfirmOutputDto> disable2Fa(UUID userId, _2FAStrategy strategy) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have permissions to access this resource")
+            );
+
+            if (!user.get_2FAStrategies().contains(strategy))
+                throw new BadRequestException(
+                        "Cannot proceed because 2 factors authentication via " + strategy.name().toLowerCase() + " " +
+                                "isn't enabled"
+                );
+
+            user.get_2FAStrategies().remove(strategy);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "2 factors authentication via " + strategy.name().toLowerCase() + " has been successfully disabled",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
+
+    public Mono<ConfirmOutputDto> enable2Fa(UUID userId, _2FAStrategy strategy) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have permissions to access this resource")
+            );
+
+            switch (strategy) {
+                case SMS -> {
+                    if (!user.isPhoneNumberVerified())
+                        throw new BadRequestException("Cannot enable 2 factors authentication via SMS because your phone number hasn't been verified");
+                }
+                case EMAIL -> {
+                    if (!user.isEmailVerified())
+                        throw new BadRequestException("Cannot enable 2 factors authentication via email because your email address hasn't been verified");
+                }
+                default -> throw new ForbiddenException("You don't have the permissions to access this resource");
+            }
+
+            if (user.get_2FAStrategies().contains(strategy))
+                throw new BadRequestException(
+                        "Cannot proceed because 2 factors authentication via " + strategy.name().toLowerCase() + " " +
+                                "is already enabled"
+                );
+
+            user.get_2FAStrategies().add(strategy);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "2 factors authentication via " + strategy.name().toLowerCase() + " has been successfully enabled",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
+
+    public Mono<ConfirmOutputDto> updateEmail(String newEmail, UUID userId) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            user.setPreviousEmail(user.getEmail());
+            user.setEmail(newEmail);
+            user.setEmailVerified(false);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "Your email has been successfully updated. You must verify your new email before " +
+                            "you can use it in the app",
+                    HttpStatus.OK
+            );
+
+        });
+
+    }
+
+    public Mono<ConfirmOutputDto> updatePhoneNumber(String newPhoneNumber, UUID userId) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            user.setPreviousEmail(user.getPhoneNumber());
+            user.setEmail(newPhoneNumber);
+            user.setPhoneNumberVerified(false);
+
+            userRepository.save(user);
+
+            return new ConfirmOutputDto(
+                    "Your phone number has been successfully updated. You must verify your new phone " +
+                            "number before you can use it in the app",
+                    HttpStatus.OK
+            );
+
+        });
 
     }
 

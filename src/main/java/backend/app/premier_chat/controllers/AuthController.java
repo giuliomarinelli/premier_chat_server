@@ -1,15 +1,17 @@
 package backend.app.premier_chat.controllers;
 
-import backend.app.premier_chat.Models.Dto.inputDto.LoginDto;
-import backend.app.premier_chat.Models.Dto.inputDto.UserPostInputDto;
+import backend.app.premier_chat.Models.Dto.inputDto.*;
 import backend.app.premier_chat.Models.Dto.outputDto.*;
 import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
+import backend.app.premier_chat.Models.configuration.JotpConfiguration;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
 import backend.app.premier_chat.Models.configuration.TokenPair;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.Models.enums._2FAStrategy;
+import backend.app.premier_chat.exception_handling.BadRequestException;
+import backend.app.premier_chat.exception_handling.ForbiddenException;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.security.JwtUtils;
@@ -35,30 +37,44 @@ import java.util.UUID;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthService authService;
+    public AuthController(
+            AuthService authService,
+            AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
+            SecurityCookieConfiguration securityCookieConfiguration,
+            JwtUtils jwtUtils,
+            UserRepository userRepository,
+            SecurityUtils securityUtils,
+            JotpConfiguration jotpConfiguration
+    ) {
+        this.authService = authService;
+        this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
+        this.securityCookieConfiguration = securityCookieConfiguration;
+        this.jwtUtils = jwtUtils;
+        this.userRepository = userRepository;
+        this.securityUtils = securityUtils;
+        this.jotpConfiguration = jotpConfiguration;
+    }
 
-    @Autowired
-    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+    private final AuthService authService;
 
-    @Autowired
-    private SecurityCookieConfiguration securityCookieConfiguration;
+    private final AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final SecurityCookieConfiguration securityCookieConfiguration;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final JwtUtils jwtUtils;
 
-    @Autowired
-    private SecurityUtils securityUtils;
+    private final UserRepository userRepository;
+
+    private final SecurityUtils securityUtils;
+
+    private final JotpConfiguration jotpConfiguration;
 
     @PostMapping("/account/register")
     public Mono<ResponseEntity<ConfirmRegistrationOutputDto>> register(@Valid @RequestBody Mono<UserPostInputDto> userInput) {
-        return userInput.flatMap(ui -> authService.register(ui)).map(res -> ResponseEntity.status(HttpStatus.CREATED).body(res));
+        return userInput.flatMap(authService::register).map(res -> ResponseEntity.status(HttpStatus.CREATED).body(res));
     }
 
-    @GetMapping("/account/activate")
+    @PostMapping("/account/activate")
     public Mono<ResponseEntity<ConfirmOutputDto>> activateAccount(@RequestParam("at") String activationToken) {
         return authService.activateUser(activationToken).map(ResponseEntity::ok);
     }
@@ -129,7 +145,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -139,7 +154,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -149,7 +163,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -158,7 +171,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -285,7 +297,6 @@ public class AuthController {
         }).map(body -> ResponseEntity.status(HttpStatus.OK).body(body));
     }
 
-    @GetMapping("/logout")
     @PostMapping("/logout")
     public Mono<ResponseEntity<ConfirmOutputDto>> logout(ServerHttpRequest req, ServerHttpResponse res) {
 
@@ -344,6 +355,63 @@ public class AuthController {
         ConfirmOutputDto body = new ConfirmOutputDto("Logged out successfully", HttpStatus.OK);
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(body));
     }
+
+    @PostMapping("/2-factors-authentication/totp/request")
+    public Mono<ResponseEntity<ConfirmWithJotpMetadataDto>> requestTotpFor2Fa(@Valid @RequestBody Mono<AbstractVerificationBody> bodyMono, ServerHttpRequest req) {
+
+        // Per ora tralascio la strategia HEADER su cui tornerò in un secondo momento
+
+        return bodyMono.flatMap(bodyInput -> {
+
+            Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+
+            if (cookies.get("__pre_authorization_token") == null)
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            HttpCookie preAuthCookie = cookies.get("__pre_authorization_token");
+
+            if (preAuthCookie.getValue().isBlank())
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            String preAuthorizationToken = preAuthCookie.getValue();
+
+            UUID userId = jwtUtils.extractJwtUsefulClaims(
+                    preAuthorizationToken,
+                    TokenType.PRE_AUTHORIZATION_TOKEN,
+                    false
+            ).getSub();
+
+            _2FAStrategy strategy = null;
+            String contact = "";
+            String message = "";
+
+            if (bodyInput instanceof EmailVerificationDto) {
+                strategy = _2FAStrategy.EMAIL;
+                contact = ((EmailVerificationDto) bodyInput).getEmail();
+                message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
+                        "seconds has been sent to your email address";
+            } else if (bodyInput instanceof PhoneNumberVerificationDto) {
+                strategy = _2FAStrategy.SMS;
+                contact = ((PhoneNumberVerificationDto) bodyInput).getPhoneNumber();
+                message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
+                        "seconds has been sent via SMS to your phone number";
+            }
+            if (strategy == null || contact.isEmpty() || message.isBlank())
+                throw new BadRequestException();
+            final String _message = message;
+
+            return authService.verifyContactBeforeGeneratingTOTP(preAuthorizationToken, contact, strategy)
+                    .map(jotpMetadataDto -> {
+
+                        ConfirmWithJotpMetadataDto body = new ConfirmWithJotpMetadataDto(_message, HttpStatus.OK, jotpMetadataDto);
+                        return ResponseEntity.status(HttpStatus.OK).body(body);
+
+                    });
+
+        });
+
+    }
+
 
 }
 
