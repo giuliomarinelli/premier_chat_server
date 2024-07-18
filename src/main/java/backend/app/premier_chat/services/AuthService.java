@@ -149,6 +149,33 @@ public class AuthService {
 
     }
 
+    public Mono<JotpMetadataDto> generateTotpToVerifyPhoneNumberForSms2FaActivation(UUID userId) {
+
+        return Mono.fromCallable(() -> {
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            if (user.get_2FAStrategies().contains(_2FAStrategy.SMS))
+                throw new BadRequestException("2 Factors Authentication with SMS strategy is already enabled for your phone number");
+
+            if (user.getPhoneNumber() == null || user.getPhoneNumber().isBlank())
+                throw new BadRequestException("You don't have provided a valid phone number");
+
+            JotpWrapperOutputDTO wrapper = securityUtils.generateJotpTOTP(user.getTotpSecret());
+
+            notificationService.sendSms(user.getPhoneNumber(), "Hello " + user.getUsername() +
+                    ". Here is your code to activate 2 factors authentication associated to this phone number: "
+                    + wrapper.getTOTP() + "\n\n" + "It's valid " + jotpConfiguration.getPeriod() + " seconds."
+            );
+
+            return new JotpMetadataDto(wrapper.getGeneratedAt(), wrapper.getExpiresAt());
+
+        });
+
+    }
+
     public Mono<JotpMetadataDto> verifyContactBeforeGeneratingTOTP(String preAuthorizationToken, String contact, _2FAStrategy strategy) {
 
         return Mono.fromCallable(() -> {

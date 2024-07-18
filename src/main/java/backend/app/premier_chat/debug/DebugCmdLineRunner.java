@@ -3,6 +3,7 @@ package backend.app.premier_chat.debug;
 
 import backend.app.premier_chat.Models.Dto.outputDto.JotpWrapperOutputDTO;
 import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
+import backend.app.premier_chat.Models.enums.EncodeType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.security.JwtUtils;
 import backend.app.premier_chat.security.SecurityUtils;
@@ -67,24 +68,26 @@ public class DebugCmdLineRunner implements CommandLineRunner {
 //
 //        log.info(jwtUtils.extractJwtUsefulClaims(token, TokenType.ACCESS_TOKEN, false));
 
-        log.info(securityCookieConfiguration);
-
-        String secret = securityUtils.generateJotpRandomSecret();
+//        log.info(securityCookieConfiguration);
+//
+//        String secret = securityUtils.generateJotpRandomSecret();
 
 //        log.info("TOTP Secret = {}", secret);
 //        String _TOTP = securityUtils.generateJotpTOTP(secret);
 //        log.info("Generated TOTP = {}", _TOTP);
 //        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP(secret, _TOTP));
-        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M", "936577"));
+//        log.info("TOTP Validity = {}", securityUtils.verifyJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M", "936577"));
+//
+//        JotpWrapperOutputDTO jotpWrapperOutputDTO = securityUtils.generateJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M");
+//
+//        log.info(
+//                "Codice TOTP = {}. Valido dalle {} alle {}",
+//                jotpWrapperOutputDTO.getTOTP(),
+//                getLocalTimeFromUnixEpochMillis(jotpWrapperOutputDTO.getGeneratedAt()),
+//                getLocalTimeFromUnixEpochMillis(jotpWrapperOutputDTO.getExpiresAt())
+//        );
 
-        JotpWrapperOutputDTO jotpWrapperOutputDTO = securityUtils.generateJotpTOTP("EGQPZVSHV6QXV7VPMQYFRVE6VVEKNY3M");
-
-        log.info(
-                "Codice TOTP = {}. Valido dalle {} alle {}",
-                jotpWrapperOutputDTO.getTOTP(),
-                getLocalTimeFromUnixEpochMillis(jotpWrapperOutputDTO.getGeneratedAt()),
-                getLocalTimeFromUnixEpochMillis(jotpWrapperOutputDTO.getExpiresAt())
-        );
+        log.info("SECRET={}", securityUtils.keyGenerator(32, EncodeType.BASE_64));
 
     }
 

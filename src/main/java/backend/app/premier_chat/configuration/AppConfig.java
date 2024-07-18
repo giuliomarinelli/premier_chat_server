@@ -9,10 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.security.SecureRandom;
 import java.util.Properties;
 
 @Configuration
@@ -72,12 +69,20 @@ public class AppConfig {
     }
 
     @Bean
+    public PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration(
+            @Value("${spring.configuration.jwt.secrets.phoneNumberVerificationToken}") String secret,
+            @Value("${spring.configuration.jwt.expiration.phoneNumberVerificationToken}") long expiration
+    ) {
+        return new PhoneNumberVerificationTokenConfiguration(secret, expiration);
+    }
+
+    @Bean
     public AuthorizationStrategyConfiguration authorizationConfig(@Value("${spring.security.strategy}") String strategy) {
         return new AuthorizationStrategyConfiguration(strategy);
     }
 
     @Bean
-    public JavaMailSenderImpl getMailSender(
+    public JavaMailSenderImpl javaMailSenderImpl(
             @Value("${spring.configuration.mail.smtp.host}") String smtpHost,
             @Value("${spring.configuration.mail.smtp.port}") String port,
             @Value("${spring.configuration.mail.username}") String username,

@@ -37,30 +37,41 @@ import java.util.UUID;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthService authService;
+    public AuthController(
+            AuthService authService,
+            AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
+            SecurityCookieConfiguration securityCookieConfiguration,
+            JwtUtils jwtUtils,
+            UserRepository userRepository,
+            SecurityUtils securityUtils,
+            JotpConfiguration jotpConfiguration
+    ) {
+        this.authService = authService;
+        this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
+        this.securityCookieConfiguration = securityCookieConfiguration;
+        this.jwtUtils = jwtUtils;
+        this.userRepository = userRepository;
+        this.securityUtils = securityUtils;
+        this.jotpConfiguration = jotpConfiguration;
+    }
 
-    @Autowired
-    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+    private final AuthService authService;
 
-    @Autowired
-    private SecurityCookieConfiguration securityCookieConfiguration;
+    private final AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final SecurityCookieConfiguration securityCookieConfiguration;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final JwtUtils jwtUtils;
 
-    @Autowired
-    private SecurityUtils securityUtils;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private JotpConfiguration jotpConfiguration;
+    private final SecurityUtils securityUtils;
+
+    private final JotpConfiguration jotpConfiguration;
 
     @PostMapping("/account/register")
     public Mono<ResponseEntity<ConfirmRegistrationOutputDto>> register(@Valid @RequestBody Mono<UserPostInputDto> userInput) {
-        return userInput.flatMap(ui -> authService.register(ui)).map(res -> ResponseEntity.status(HttpStatus.CREATED).body(res));
+        return userInput.flatMap(authService::register).map(res -> ResponseEntity.status(HttpStatus.CREATED).body(res));
     }
 
     @GetMapping("/account/activate")
@@ -134,7 +145,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -144,7 +154,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -154,7 +163,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -163,7 +171,6 @@ public class AuthController {
                                     .httpOnly(securityCookieConfiguration.isHttpOnly())
                                     .path(securityCookieConfiguration.getPath())
                                     .sameSite(securityCookieConfiguration.getSameSite())
-                                    .maxAge(securityCookieConfiguration.getMaxAge())
                                     .secure(securityCookieConfiguration.isSecure())
                                     .build());
 
@@ -383,8 +390,7 @@ public class AuthController {
                 contact = ((EmailVerificationDto) bodyInput).getEmail();
                 message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
                         "seconds has been sent to your email address";
-            }
-            else if (bodyInput instanceof PhoneNumberVerificationDto) {
+            } else if (bodyInput instanceof PhoneNumberVerificationDto) {
                 strategy = _2FAStrategy.SMS;
                 contact = ((PhoneNumberVerificationDto) bodyInput).getPhoneNumber();
                 message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
@@ -401,8 +407,6 @@ public class AuthController {
                         return ResponseEntity.status(HttpStatus.OK).body(body);
 
                     });
-
-
 
         });
 
