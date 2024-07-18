@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import java.util.Properties;
 
 @Configuration
@@ -74,6 +75,14 @@ public class AppConfig {
             @Value("${spring.configuration.jwt.expiration.phoneNumberVerificationToken}") long expiration
     ) {
         return new PhoneNumberVerificationTokenConfiguration(secret, expiration);
+    }
+
+    @Bean
+    public EmailVerificationTokenConfiguration emailVerificationTokenConfiguration(
+            @Value("${spring.configuration.jwt.secrets.emailVerificationToken}") String secret,
+            @Value("${spring.configuration.jwt.expiration.emailVerificationToken}") long expiration
+    ) {
+        return new EmailVerificationTokenConfiguration(secret, expiration);
     }
 
     @Bean

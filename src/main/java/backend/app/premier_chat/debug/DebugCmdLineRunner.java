@@ -88,6 +88,7 @@ public class DebugCmdLineRunner implements CommandLineRunner {
 //        );
 
         log.info("SECRET={}", securityUtils.keyGenerator(32, EncodeType.BASE_64));
+        log.info("SECRET={}", securityUtils.keyGenerator(512, EncodeType.BASE_64));
 
     }
 

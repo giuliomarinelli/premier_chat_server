@@ -38,42 +38,52 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
-    @Autowired
-    private SecurityUtils securityUtils;
+    private final SecurityUtils securityUtils;
 
-    @Autowired
-    private PasswordEncoder encoder;
+    private final PasswordEncoder encoder;
 
-    @Autowired
-    private ActivationTokenConfiguration activationTokenConfiguration;
+    private final ActivationTokenConfiguration activationTokenConfiguration;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
 
-    @Autowired
-    private NotificationService notificationService;
+    private final NotificationService notificationService;
 
-    @Autowired
-    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+    private final AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
 
-    @Autowired
-    private JotpConfiguration jotpConfiguration;
+    private final JotpConfiguration jotpConfiguration;
+
+    public AuthService(
+            SecurityUtils securityUtils,
+            PasswordEncoder encoder,
+            ActivationTokenConfiguration activationTokenConfiguration,
+            UserRepository userRepository,
+            JwtUtils jwtUtils,
+            NotificationService notificationService,
+            AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
+            JotpConfiguration jotpConfiguration
+    ) {
+        this.securityUtils = securityUtils;
+        this.encoder = encoder;
+        this.activationTokenConfiguration = activationTokenConfiguration;
+        this.userRepository = userRepository;
+        this.jwtUtils = jwtUtils;
+        this.notificationService = notificationService;
+        this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
+        this.jotpConfiguration = jotpConfiguration;
+    }
 
     public Mono<ConfirmRegistrationOutputDto> register(UserPostInputDto userPostInputDto) throws BadRequestException, InternalServerErrorException {
 
         return Mono.fromCallable(() -> {
-
-            String totpSecret = "";
 
             try {
                 User user = new User(
                         userPostInputDto.username(),
                         userPostInputDto.email(),
                         encoder.encode(userPostInputDto.password()),
-                        totpSecret,
+                        securityUtils.generateJotpRandomSecret(),
                         activationTokenConfiguration.getExpiresIn(),
                         userPostInputDto.phoneNumber()
                 );
