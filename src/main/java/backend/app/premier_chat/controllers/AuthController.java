@@ -2,10 +2,8 @@ package backend.app.premier_chat.controllers;
 
 import backend.app.premier_chat.Models.Dto.inputDto.*;
 import backend.app.premier_chat.Models.Dto.outputDto.*;
-import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
-import backend.app.premier_chat.Models.configuration.JotpConfiguration;
-import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
-import backend.app.premier_chat.Models.configuration.TokenPair;
+import backend.app.premier_chat.Models.configuration.*;
+import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
@@ -409,6 +407,129 @@ public class AuthController {
                     });
 
         });
+
+    }
+
+    @PostMapping("/2-factors-authentication/totp/request")
+    public Mono<ResponseEntity<ConfirmOutputDto>> verifyTotpFor2Fa(@Valid @RequestBody Mono<TotpInputDto> totpInputDtoMono, ServerHttpRequest req, ServerHttpResponse res) {
+
+        return totpInputDtoMono.flatMap(totpInputDto -> {
+
+            Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+
+            if (cookies.get("__pre_authorization_token") == null)
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            HttpCookie preAuthCookie = cookies.get("__pre_authorization_token");
+
+            if (preAuthCookie.getValue().isBlank())
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            String preAuthorizationToken = preAuthCookie.getValue();
+
+            JwtUsefulClaims claims = jwtUtils.extractJwtUsefulClaims(
+                    preAuthorizationToken,
+                    TokenType.PRE_AUTHORIZATION_TOKEN,
+                    false
+            );
+
+            UUID userId = claims.getSub();
+            boolean restore = claims.isRestore();
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            if (!securityUtils.verifyJotpTOTP(user.getTotpSecret(), totpInputDto.totp())) {
+                jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
+                throw new UnauthorizedException("The code entered for 2 factors authentication is wrong");
+            }
+
+            Map<TokenPairType, TokenPair> tokens = authService.performAuthentication(userId, restore);
+
+            if (restore) {
+
+                res.addCookie(ResponseCookie.from("__access_token",
+                                tokens.get(TokenPairType.HTTP).getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP).getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_access_token", tokens.get(TokenPairType.WS)
+                                .getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS)
+                                .getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+            } else {
+
+                res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP)
+                                .getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP)
+                                .getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_access_token",
+                                tokens.get(TokenPairType.WS).getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS).getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+            }
+            ConfirmOutputDto body = new ConfirmOutputDto("Logged in successfully", HttpStatus.OK);
+            return Mono.just(body);
+
+        }).map(body -> ResponseEntity.status(HttpStatus.OK).body(body));
 
     }
 
