@@ -2,10 +2,8 @@ package backend.app.premier_chat.controllers;
 
 import backend.app.premier_chat.Models.Dto.inputDto.*;
 import backend.app.premier_chat.Models.Dto.outputDto.*;
-import backend.app.premier_chat.Models.configuration.AuthorizationStrategyConfiguration;
-import backend.app.premier_chat.Models.configuration.JotpConfiguration;
-import backend.app.premier_chat.Models.configuration.SecurityCookieConfiguration;
-import backend.app.premier_chat.Models.configuration.TokenPair;
+import backend.app.premier_chat.Models.configuration.*;
+import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
@@ -184,7 +182,11 @@ public class AuthController {
 
                 String preAuthorizationToken = jwtUtils.generateToken(userId, TokenType.PRE_AUTHORIZATION_TOKEN, loginDto.restore());
 
-                List<_2FAStrategy> _2faStrategies = userRepository.find2FaStrategiesByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
+                User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                        () -> new ForbiddenException("You don't have the permissions to access this resource")
+                );
+
+                List<_2FAStrategy> _2faStrategies = user.get_2FAStrategies();
 
                 boolean _email = false, _sms = false;
 
@@ -356,12 +358,22 @@ public class AuthController {
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(body));
     }
 
-    @PostMapping("/2-factors-authentication/totp/request")
-    public Mono<ResponseEntity<ConfirmWithJotpMetadataDto>> requestTotpFor2Fa(@Valid @RequestBody Mono<AbstractVerificationBody> bodyMono, ServerHttpRequest req) {
+    @PostMapping("/2-factors-authentication/totp/{strategy}/request")
+    public Mono<ResponseEntity<ConfirmWithJotpMetadataDto>> requestTotpFor2Fa(@PathVariable String strategy, @Valid @RequestBody Mono<ContactVerificationDto> bodyMono, ServerHttpRequest req) {
 
         // Per ora tralascio la strategia HEADER su cui tornerò in un secondo momento
 
+        _2FAStrategy _strategy;
+
+        try {
+            _strategy = _2FAStrategy.valueOf(strategy.replaceAll("-", "_").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed verification strategy field");
+        }
+
+
         return bodyMono.flatMap(bodyInput -> {
+
 
             Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
 
@@ -381,26 +393,19 @@ public class AuthController {
                     false
             ).getSub();
 
-            _2FAStrategy strategy = null;
-            String contact = "";
+            String contact = bodyInput.contact();
             String message = "";
 
-            if (bodyInput instanceof EmailVerificationDto) {
-                strategy = _2FAStrategy.EMAIL;
-                contact = ((EmailVerificationDto) bodyInput).getEmail();
+            if (_strategy.equals(_2FAStrategy.EMAIL)) {
                 message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
                         "seconds has been sent to your email address";
-            } else if (bodyInput instanceof PhoneNumberVerificationDto) {
-                strategy = _2FAStrategy.SMS;
-                contact = ((PhoneNumberVerificationDto) bodyInput).getPhoneNumber();
+            } else if (_strategy.equals(_2FAStrategy.SMS)) {
                 message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
                         "seconds has been sent via SMS to your phone number";
             }
-            if (strategy == null || contact.isEmpty() || message.isBlank())
-                throw new BadRequestException();
             final String _message = message;
 
-            return authService.verifyContactBeforeGeneratingTOTP(preAuthorizationToken, contact, strategy)
+            return authService.verifyContactBeforeGeneratingTOTP(preAuthorizationToken, contact, _strategy)
                     .map(jotpMetadataDto -> {
 
                         ConfirmWithJotpMetadataDto body = new ConfirmWithJotpMetadataDto(_message, HttpStatus.OK, jotpMetadataDto);
@@ -409,6 +414,141 @@ public class AuthController {
                     });
 
         });
+
+    }
+
+    @PostMapping("/2-factors-authentication/totp/verify")
+    public Mono<ResponseEntity<ConfirmOutputDto>> verifyTotpFor2Fa(@Valid @RequestBody Mono<TotpInputDto> totpInputDtoMono, ServerHttpRequest req, ServerHttpResponse res) {
+
+        return totpInputDtoMono.flatMap(totpInputDto -> {
+
+            Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
+
+            if (cookies.get("__pre_authorization_token") == null)
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            HttpCookie preAuthCookie = cookies.get("__pre_authorization_token");
+
+            if (preAuthCookie.getValue().isBlank())
+                throw new ForbiddenException("You don't have the permissions to access this resource");
+
+            String preAuthorizationToken = preAuthCookie.getValue();
+
+            JwtUsefulClaims claims = jwtUtils.extractJwtUsefulClaims(
+                    preAuthorizationToken,
+                    TokenType.PRE_AUTHORIZATION_TOKEN,
+                    false
+            );
+
+            UUID userId = claims.getSub();
+            boolean restore = claims.isRestore();
+
+            User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                    () -> new ForbiddenException("You don't have the permissions to access this resource")
+            );
+
+            if (!securityUtils.verifyJotpTOTP(user.getTotpSecret(), totpInputDto.totp())) {
+                jwtUtils.revokeToken(preAuthorizationToken, TokenType.PRE_AUTHORIZATION_TOKEN);
+                throw new UnauthorizedException("The code entered for 2 factors authentication is wrong");
+            }
+
+            Map<TokenPairType, TokenPair> tokens = authService.performAuthentication(userId, restore);
+
+            if (restore) {
+
+                res.addCookie(ResponseCookie.from("__access_token",
+                                tokens.get(TokenPairType.HTTP).getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP).getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_access_token", tokens.get(TokenPairType.WS)
+                                .getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS)
+                                .getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .maxAge(securityCookieConfiguration.getMaxAge())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+
+            } else {
+
+                res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP)
+                                .getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__refresh_token", tokens.get(TokenPairType.HTTP)
+                                .getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_access_token",
+                                tokens.get(TokenPairType.WS).getAccessToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+                res.addCookie(ResponseCookie.from("__ws_refresh_token", tokens.get(TokenPairType.WS).getRefreshToken())
+                        .domain(securityCookieConfiguration.getDomain())
+                        .httpOnly(securityCookieConfiguration.isHttpOnly())
+                        .path(securityCookieConfiguration.getPath())
+                        .sameSite(securityCookieConfiguration.getSameSite())
+                        .secure(securityCookieConfiguration.isSecure())
+                        .build());
+
+            }
+
+            res.addCookie(ResponseCookie.from("__pre_authorization_token", "")
+                    .domain(securityCookieConfiguration.getDomain())
+                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                    .path(securityCookieConfiguration.getPath())
+                    .sameSite(securityCookieConfiguration.getSameSite())
+                    .secure(securityCookieConfiguration.isSecure())
+                    .maxAge(0)
+                    .build());
+
+
+            ConfirmOutputDto body = new ConfirmOutputDto("Logged in successfully", HttpStatus.OK);
+            return Mono.just(body);
+
+        }).map(body -> ResponseEntity.status(HttpStatus.OK).body(body));
 
     }
 
