@@ -144,7 +144,7 @@ public class JwtUtils {
     public JwtUsefulClaims extractJwtUsefulClaims(String token, TokenType type, boolean ignoreExpiration) throws UnauthorizedException {
 
         if (isRevokedToken(token, type))
-            throw new UnauthorizedException("Invalid " + type.name().toLowerCase().replaceAll("_", " "));
+            throw new UnauthorizedException("Revoked " + type.name().toLowerCase().replaceAll("_", " "));
 
         JwtConfiguration jwtConfiguration = getJwtConfigurationFromTokenType(type);
 
@@ -264,7 +264,9 @@ public class JwtUtils {
     public TokenPair refreshTokenPair(String refreshToken, TokenPairType type) throws UnauthorizedException {
         switch (type) {
             case HTTP -> {
+                log.info("Chiamo il metodo per refreshare i token http");
                 JwtUsefulClaims payload = extractJwtUsefulClaims(refreshToken, TokenType.REFRESH_TOKEN, false);
+                log.info("refresh effettuato, revoco il refresh token precedente");
                 revokeToken(refreshToken, TokenType.REFRESH_TOKEN);
                 return new TokenPair(
                         generateToken(payload.getSub(), TokenType.ACCESS_TOKEN, payload.isRestore()),

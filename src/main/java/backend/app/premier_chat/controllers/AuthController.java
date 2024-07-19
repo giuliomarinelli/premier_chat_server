@@ -182,7 +182,11 @@ public class AuthController {
 
                 String preAuthorizationToken = jwtUtils.generateToken(userId, TokenType.PRE_AUTHORIZATION_TOKEN, loginDto.restore());
 
-                List<_2FAStrategy> _2faStrategies = userRepository.find2FaStrategiesByUserId(userId).orElseThrow(() -> new UnauthorizedException("An authentication error occurred"));
+                User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
+                        () -> new ForbiddenException("You don't have the permissions to access this resource")
+                );
+
+                List<_2FAStrategy> _2faStrategies = user.get_2FAStrategies();
 
                 boolean _email = false, _sms = false;
 
@@ -354,12 +358,22 @@ public class AuthController {
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(body));
     }
 
-    @PostMapping("/2-factors-authentication/totp/request")
-    public Mono<ResponseEntity<ConfirmWithJotpMetadataDto>> requestTotpFor2Fa(@Valid @RequestBody Mono<AbstractVerificationBody> bodyMono, ServerHttpRequest req) {
+    @PostMapping("/2-factors-authentication/totp/{strategy}/request")
+    public Mono<ResponseEntity<ConfirmWithJotpMetadataDto>> requestTotpFor2Fa(@PathVariable String strategy, @Valid @RequestBody Mono<ContactVerificationDto> bodyMono, ServerHttpRequest req) {
 
         // Per ora tralascio la strategia HEADER su cui tornerò in un secondo momento
 
+        _2FAStrategy _strategy;
+
+        try {
+            _strategy = _2FAStrategy.valueOf(strategy.replaceAll("-", "_").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed verification strategy field");
+        }
+
+
         return bodyMono.flatMap(bodyInput -> {
+
 
             Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
 
@@ -379,26 +393,19 @@ public class AuthController {
                     false
             ).getSub();
 
-            _2FAStrategy strategy = null;
-            String contact = "";
+            String contact = bodyInput.contact();
             String message = "";
 
-            if (bodyInput instanceof EmailVerificationDto) {
-                strategy = _2FAStrategy.EMAIL;
-                contact = ((EmailVerificationDto) bodyInput).getEmail();
+            if (_strategy.equals(_2FAStrategy.EMAIL)) {
                 message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
                         "seconds has been sent to your email address";
-            } else if (bodyInput instanceof PhoneNumberVerificationDto) {
-                strategy = _2FAStrategy.SMS;
-                contact = ((PhoneNumberVerificationDto) bodyInput).getPhoneNumber();
+            } else if (_strategy.equals(_2FAStrategy.SMS)) {
                 message = "A " + jotpConfiguration.getDigits() + " digits code valid " + jotpConfiguration.getPeriod() + " " +
                         "seconds has been sent via SMS to your phone number";
             }
-            if (strategy == null || contact.isEmpty() || message.isBlank())
-                throw new BadRequestException();
             final String _message = message;
 
-            return authService.verifyContactBeforeGeneratingTOTP(preAuthorizationToken, contact, strategy)
+            return authService.verifyContactBeforeGeneratingTOTP(preAuthorizationToken, contact, _strategy)
                     .map(jotpMetadataDto -> {
 
                         ConfirmWithJotpMetadataDto body = new ConfirmWithJotpMetadataDto(_message, HttpStatus.OK, jotpMetadataDto);
@@ -410,7 +417,7 @@ public class AuthController {
 
     }
 
-    @PostMapping("/2-factors-authentication/totp/request")
+    @PostMapping("/2-factors-authentication/totp/verify")
     public Mono<ResponseEntity<ConfirmOutputDto>> verifyTotpFor2Fa(@Valid @RequestBody Mono<TotpInputDto> totpInputDtoMono, ServerHttpRequest req, ServerHttpResponse res) {
 
         return totpInputDtoMono.flatMap(totpInputDto -> {
@@ -488,6 +495,7 @@ public class AuthController {
                         .secure(securityCookieConfiguration.isSecure())
                         .build());
 
+
             } else {
 
                 res.addCookie(ResponseCookie.from("__access_token", tokens.get(TokenPairType.HTTP)
@@ -526,6 +534,17 @@ public class AuthController {
                         .build());
 
             }
+
+            res.addCookie(ResponseCookie.from("__pre_authorization_token", "")
+                    .domain(securityCookieConfiguration.getDomain())
+                    .httpOnly(securityCookieConfiguration.isHttpOnly())
+                    .path(securityCookieConfiguration.getPath())
+                    .sameSite(securityCookieConfiguration.getSameSite())
+                    .secure(securityCookieConfiguration.isSecure())
+                    .maxAge(0)
+                    .build());
+
+
             ConfirmOutputDto body = new ConfirmOutputDto("Logged in successfully", HttpStatus.OK);
             return Mono.just(body);
 

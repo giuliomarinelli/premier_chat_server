@@ -10,6 +10,7 @@ import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.UserRepository;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
+@Log4j2
 public class JwtAuthenticationFilter implements WebFilter {
 
     @Autowired
@@ -48,6 +50,20 @@ public class JwtAuthenticationFilter implements WebFilter {
     public @NonNull Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {
 
         ServerHttpRequest req = exchange.getRequest();
+
+        if (!(req instanceof FilteredServerHttpRequestDecorator)) {
+            req = new FilteredServerHttpRequestDecorator(req);
+            exchange = exchange.mutate().request(req).build();
+        }
+
+        FilteredServerHttpRequestDecorator filteredRequest = (FilteredServerHttpRequestDecorator) req;
+
+        if (filteredRequest.isFilterApplied()) {
+            return chain.filter(exchange);
+        }
+
+        filteredRequest.setFilterApplied(true);
+
 
         if (publicEndpoints.contains(req.getPath().toString())) return chain.filter(exchange);
 
@@ -79,6 +95,7 @@ public class JwtAuthenticationFilter implements WebFilter {
                     if (userRepository.findValidEnabledUserById(userId).isEmpty())
                         throw new UnauthorizedException("Invalid access token");
 
+                    log.info("Procedo al refresh -----=====-----");
                     TokenPair newTokenPair = jwtUtils.refreshTokenPair(tokenPair.getRefreshToken(), TokenPairType.HTTP);
 
                     ServerHttpResponse res = exchange.getResponse();
