@@ -41,4 +41,37 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResDto));
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Mono<ResponseEntity<ErrorResDto>> handleBadRequestException(UnauthorizedException e) {
+        ErrorResDto errorResDto = new ErrorResDto(
+                HttpStatus.UNAUTHORIZED,
+                "Unauthorized",
+                e.getMessage()
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResDto));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Mono<ResponseEntity<ErrorResDto>> handleBadRequestException(ForbiddenException e) {
+        ErrorResDto errorResDto = new ErrorResDto(
+                HttpStatus.FORBIDDEN,
+                "Forbidden",
+                e.getMessage()
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResDto));
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Mono<ResponseEntity<ErrorResDto>> handleBadRequestException(NotFoundException e) {
+        ErrorResDto errorResDto = new ErrorResDto(
+                HttpStatus.NOT_FOUND,
+                "Not Found",
+                e.getMessage()
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResDto));
+    }
+
 }
