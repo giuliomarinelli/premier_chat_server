@@ -24,16 +24,16 @@ public class Config {
     private Auth authorizationListener;
 
     @Value("${spring.configuration.socket.host}")
-    private String SOCKETHOST = "localhost";
+    private String SOCKET_HOST";
     @Value("${spring.configuration.socket.port}")
-    private int SOCKETPORT = 8085;
+    private int SOCKET_PORT;
     private SocketIOServer server;
 
     @Bean
     public SocketIOServer socketIOServer() {
         Configuration config = new Configuration();
-        config.setHostname(SOCKETHOST);
-        config.setPort(SOCKETPORT);
+        config.setHostname(SOCKET_HOST);
+        config.setPort(SOCKET_PORT);
         config.setAuthorizationListener(authorizationListener);
         server = new SocketIOServer(config);
         server.start();
