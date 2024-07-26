@@ -107,10 +107,11 @@ public class ConversationService {
                                 });
                     } else {
 
-                        Conversation.Participant participant1 = createParticipant(messageDto.fromId());
-                        Conversation.Participant participant2 = createParticipant(messageDto.toId());
-                        Conversation conversation = new Conversation(List.of(participant1, participant2));
-                        conversation.getMessages().add(message);
+                        createConversation(messageDto.fromId(), messageDto.toId()).flatMap(conversation -> {
+                            conversation.getMessages().add(message);
+                            conversationRepository.save(conversation);
+                            return Mono.empty();
+                        });
 
                     }
                     if (sessionService.isUserOnLine(messageDto.toId())) {
