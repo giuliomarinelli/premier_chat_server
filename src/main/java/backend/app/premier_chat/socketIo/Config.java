@@ -24,7 +24,7 @@ public class Config {
     private Auth authorizationListener;
 
     @Value("${spring.configuration.socket.host}")
-    private String SOCKET_HOST";
+    private String SOCKET_HOST;
     @Value("${spring.configuration.socket.port}")
     private int SOCKET_PORT;
     private SocketIOServer server;
