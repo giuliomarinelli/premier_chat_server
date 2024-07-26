@@ -64,14 +64,13 @@ public class Conversation {
                 UUID fromId,
                 UUID toId,
                 String body,
-                boolean read,
                 boolean wasToUserOffLine
         ) {
             this.fromId = fromId;
             this.toId = toId;
             this.body = body;
-            this.read = read;
             this.wasToUserOffline = wasToUserOffLine;
+            read = false;
             timestamp = System.currentTimeMillis();
             attachments = new LinkedHashSet<>();
         }

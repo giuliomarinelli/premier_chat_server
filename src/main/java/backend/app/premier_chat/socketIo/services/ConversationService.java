@@ -7,10 +7,12 @@ import backend.app.premier_chat.exception_handling.BadRequestException;
 import backend.app.premier_chat.exception_handling.NotFoundException;
 import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.repositories.mongo_db.ConversationRepository;
+import com.corundumstudio.socketio.SocketIOClient;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 
@@ -90,16 +92,38 @@ public class ConversationService {
 
         isThereAConversationBetweenTwoUsers(messageDto.fromId(), messageDto.toId())
                 .map(isThere -> {
+                    Conversation.Message message = new Conversation.Message(
+                            messageDto.fromId(),
+                            messageDto.toId(),
+                            messageDto.body(),
+                            sessionService.isUserOnLine(messageDto.toId())
+                    );
                     if (isThere) {
-                        Mono<Conversation> monoConversation = conversationRepository.findByParticipantsExactly(messageDto.fromId(), messageDto.toId());
-                        monoConversation.flatMap(conversation -> {
+                        return conversationRepository.findByParticipantsExactly(messageDto.fromId(), messageDto.toId())
+                                .flatMap(conversation -> {
+                                    conversation.getMessages().add(message);
+                                    conversationRepository.save(conversation);
+                                    return Mono.empty();
+                                });
+                    } else {
 
+                        Conversation.Participant participant1 = createParticipant(messageDto.fromId());
+                        Conversation.Participant participant2 = createParticipant(messageDto.toId());
+                        Conversation conversation = new Conversation(List.of(participant1, participant2));
+                        conversation.getMessages().add(message);
 
-
-                        });
                     }
-                });
+                    if (sessionService.isUserOnLine(messageDto.toId())) {
+                        Set<UUID> sessionIds = sessionService.getSessionIdsFromUserId(messageDto.toId());
+                        for (UUID sessionId : sessionIds) {
+                            SocketIOClient client = clientService.get(sessionId);
+                            client.sendEvent("message", message);
+                        }
+                    }
+                    return Mono.empty();
 
+                });
+        return Mono.empty();
     }
 
 }
