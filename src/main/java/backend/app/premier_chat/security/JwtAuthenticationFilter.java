@@ -37,21 +37,29 @@ import java.util.UUID;
 @Log4j2
 public class JwtAuthenticationFilter implements WebFilter {
 
-    @Autowired
-    private AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
+    private final AuthorizationStrategyConfiguration authorizationStrategyConfiguration;
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
 
-    @Autowired
-    private SecurityCookieConfiguration securityCookieConfiguration;
+    private final SecurityCookieConfiguration securityCookieConfiguration;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
     private final List<String> publicEndpoints = List.of();
 
     private final List<String> publicPathPrefixes = List.of("/api/auth");
+
+    public JwtAuthenticationFilter(
+            AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
+            JwtUtils jwtUtils,
+            SecurityCookieConfiguration securityCookieConfiguration,
+            UserRepository userRepository
+    ) {
+        this.authorizationStrategyConfiguration = authorizationStrategyConfiguration;
+        this.jwtUtils = jwtUtils;
+        this.securityCookieConfiguration = securityCookieConfiguration;
+        this.userRepository = userRepository;
+    }
 
     @Override
     public @NonNull Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {

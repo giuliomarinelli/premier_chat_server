@@ -26,33 +26,36 @@ import java.util.UUID;
 @Log4j2
 public class DebugCmdLineRunner implements CommandLineRunner {
 
-    @Autowired
-    private JwtUtils jwtUtils;
-
-    @Autowired
-    private SecurityCookieConfiguration securityCookieConfiguration;
-
-    @Autowired
-    private SecurityUtils securityUtils;
-
-    public LocalTime getLocalTimeFromUnixEpochMillis(long unixEpochTimestampMillis) {
-        // Converti il timestamp Unix in millisecondi a un oggetto Instant
-        Instant instant = Instant.ofEpochMilli(unixEpochTimestampMillis);
-
-        // Converti l'oggetto Instant a LocalTime
-        return roundToNearestSecond(instant.atZone(ZoneId.systemDefault()).toLocalTime());
-
-    }
-
-    public LocalTime roundToNearestSecond(LocalTime localTime) {
-        int nanoSeconds = localTime.getNano();
-        if (nanoSeconds >= 500_000_000) {
-            // Arrotonda verso l'alto
-            localTime = localTime.plusSeconds(1);
-        }
-        // Imposta i nanosecondi a zero
-        return localTime.truncatedTo(ChronoUnit.SECONDS);
-    }
+//    private final JwtUtils jwtUtils;
+//
+//    private final SecurityCookieConfiguration securityCookieConfiguration;
+//
+//    private final SecurityUtils securityUtils;
+//
+//    public DebugCmdLineRunner(JwtUtils jwtUtils, SecurityCookieConfiguration securityCookieConfiguration, SecurityUtils securityUtils) {
+//        this.jwtUtils = jwtUtils;
+//        this.securityCookieConfiguration = securityCookieConfiguration;
+//        this.securityUtils = securityUtils;
+//    }
+//
+//    public LocalTime getLocalTimeFromUnixEpochMillis(long unixEpochTimestampMillis) {
+//        // Converti il timestamp Unix in millisecondi a un oggetto Instant
+//        Instant instant = Instant.ofEpochMilli(unixEpochTimestampMillis);
+//
+//        // Converti l'oggetto Instant a LocalTime
+//        return roundToNearestSecond(instant.atZone(ZoneId.systemDefault()).toLocalTime());
+//
+//    }
+//
+//    public LocalTime roundToNearestSecond(LocalTime localTime) {
+//        int nanoSeconds = localTime.getNano();
+//        if (nanoSeconds >= 500_000_000) {
+//            // Arrotonda verso l'alto
+//            localTime = localTime.plusSeconds(1);
+//        }
+//        // Imposta i nanosecondi a zero
+//        return localTime.truncatedTo(ChronoUnit.SECONDS);
+//    }
 
     @Override
     public void run(String... args) throws Exception {

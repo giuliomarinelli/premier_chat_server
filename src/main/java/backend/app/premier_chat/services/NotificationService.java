@@ -16,14 +16,24 @@ import org.springframework.stereotype.Service;
 @Configuration
 public class NotificationService {
 
-    @Value("${spring.configuration.twilio.phoneNumber}")
-    private String twilioPhoneNumber;
 
-    @Value("${spring.configuration.mail.from}")
-    private String mailDefaultFrom;
+    private final String twilioPhoneNumber;
 
-    @Autowired
-    private JavaMailSenderImpl javaMailSender;
+
+    private final String mailDefaultFrom;
+
+
+    private final JavaMailSenderImpl javaMailSender;
+
+    public NotificationService(
+            @Value("${spring.configuration.twilio.phoneNumber}") String twilioPhoneNumber,
+            @Value("${spring.configuration.mail.from}") String mailDefaultFrom,
+            JavaMailSenderImpl javaMailSender
+    ) {
+        this.mailDefaultFrom = mailDefaultFrom;
+        this.twilioPhoneNumber = twilioPhoneNumber;
+        this.javaMailSender = javaMailSender;
+    }
 
     public void sendSms(String toPhoneNumber, String messageBody) {
         Message message = Message.creator(
