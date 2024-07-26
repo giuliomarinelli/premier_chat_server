@@ -80,14 +80,13 @@ public class Conversation {
                 UUID fromId,
                 UUID toId,
                 String body,
-                boolean read,
                 boolean wasToUserOffLine,
                 LinkedHashSet<FileAttachment> fileAttachments
         ) {
             this.fromId = fromId;
             this.toId = toId;
             this.body = body;
-            this.read = read;
+            read = false;
             this.wasToUserOffline = wasToUserOffLine;
             timestamp = System.currentTimeMillis();
             attachments = fileAttachments;

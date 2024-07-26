@@ -33,6 +33,7 @@ public class ConversationService {
         return conversationRepository.findByParticipantsExactly(userId1, userId2)
                 .hasElement()
                 .defaultIfEmpty(false);
+
     }
 
     public Mono<Conversation> findConversationBetweenTwoUsers(UUID userId1, UUID userId2) {
@@ -42,6 +43,7 @@ public class ConversationService {
                     if (!value) throw new NotFoundException("Conversation not found");
                     return conversationRepository.findByParticipantsExactly(userId1, userId2);
                 });
+
     }
 
     public Conversation.Participant createParticipant(UUID userId) {

@@ -1,20 +1,19 @@
 package backend.app.premier_chat.socketIo;
 
+import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.security.JwtUtils;
-import com.corundumstudio.socketio.AckRequest;
+import backend.app.premier_chat.socketIo.services.ClientService;
+import backend.app.premier_chat.socketIo.services.SessionService;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
-import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import lombok.extern.log4j.Log4j2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
-import java.util.List;
 import java.util.UUID;
+
 
 @Component
 @Log4j2
@@ -25,9 +24,20 @@ public class Gateway {
 
     private final SocketIOServer socketServer;
 
-    Gateway(JwtUtils jwtUtils, SocketIOServer socketServer) {
+    private final SessionService sessionService;
+
+    private final ClientService clientService;
+
+    Gateway(
+            JwtUtils jwtUtils,
+            SocketIOServer socketServer,
+            SessionService sessionService,
+            ClientService clientService
+    ) {
         this.jwtUtils = jwtUtils;
         this.socketServer = socketServer;
+        this.sessionService = sessionService;
+        this.clientService = clientService;
         this.socketServer.addConnectListener(onUserConnectWithSocket);
         this.socketServer.addDisconnectListener(onUserDisconnectWithSocket);
 
@@ -39,15 +49,22 @@ public class Gateway {
     public ConnectListener onUserConnectWithSocket = new ConnectListener() {
         @Override
         public void onConnect(SocketIOClient client) {
-            log.info("User with socketID = {} connected to socket", client.getSessionId());
+            String wsAccessToken = jwtUtils.extractWsTokensFromContextCookies(client).getAccessToken();
+            UUID userId = jwtUtils.extractJwtUsefulClaims(wsAccessToken, TokenType.WS_ACCESS_TOKEN, false).getSub();
+            sessionService.add(userId, client.getSessionId());
+            clientService.add(client.getSessionId(), client);
+            log.info("User {} with socketID = {} connected to socket", userId, client.getSessionId());
         }
+
     };
-
-
     public DisconnectListener onUserDisconnectWithSocket = new DisconnectListener() {
         @Override
         public void onDisconnect(SocketIOClient client) {
-            log.info("User with socketID = {} disconnected from socket", client.getSessionId());
+            String wsAccessToken = jwtUtils.extractWsTokensFromContextCookies(client).getAccessToken();
+            UUID userId = jwtUtils.extractJwtUsefulClaims(wsAccessToken, TokenType.WS_ACCESS_TOKEN, true).getSub();
+            sessionService.delete(client.getSessionId());
+            clientService.remove(client.getSessionId());
+            log.info("User {} with socketID = {} disconnected from socket", userId, client.getSessionId());
         }
     };
 
