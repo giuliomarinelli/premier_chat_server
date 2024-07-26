@@ -18,6 +18,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.corundumstudio.socketio.HandshakeData;
 import com.corundumstudio.socketio.SocketIOClient;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
@@ -221,9 +222,9 @@ public class JwtUtils {
 
     }
 
-    public TokenPair extractWsTokensFromContextCookies(SocketIOClient client) {
+    public TokenPair extractWsTokensFromContextCookies(HandshakeData handshakeData) {
 
-        Map<String, HttpCookie> cookies = socketUtils.parseCookies(client.getHandshakeData().getHttpHeaders().get("Cookie"));
+        Map<String, HttpCookie> cookies = socketUtils.parseCookies(handshakeData.getHttpHeaders().get("Cookie"));
 
         if (cookies.get("__ws_access_token") == null || cookies.get("__ws_access_token").getValue().isBlank())
             throw new ForbiddenException("You don't have the permissions to access this resource");
@@ -236,6 +237,12 @@ public class JwtUtils {
                 cookies.get("__ws_refresh_token").getValue(),
                 TokenPairType.WS
         );
+
+    }
+
+    public TokenPair extractWsTokensFromContextCookies(SocketIOClient client) {
+
+        return extractWsTokensFromContextCookies(client.getHandshakeData());
 
     }
 

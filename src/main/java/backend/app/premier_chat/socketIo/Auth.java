@@ -19,6 +19,9 @@ public class Auth implements AuthorizationListener {
 
     @Override
     public AuthorizationResult getAuthorizationResult(HandshakeData handshakeData) {
+
+
+
         return AuthorizationResult.SUCCESSFUL_AUTHORIZATION;
     }
 }
