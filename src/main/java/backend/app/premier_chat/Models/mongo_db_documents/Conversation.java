@@ -26,6 +26,12 @@ public class Conversation {
     @Field
     private List<Message> messages;
 
+    public Conversation(List<Participant> participants) {
+        if (participants.size() != 2)
+            throw new IllegalArgumentException("Conversation Partecipants list must contain exactly 2 participants");
+        this.participants = participants;
+    }
+
     @Data
     @NoArgsConstructor
     public static class Participant {
@@ -49,21 +55,40 @@ public class Conversation {
         private UUID fromId;
         private UUID toId;
         private String body;
+        private boolean read;
+        private boolean wasToUserOffline;
         private long timestamp;
         private LinkedHashSet<FileAttachment> attachments;
 
-        public Message(UUID fromId, UUID toId, String body) {
+        public Message(
+                UUID fromId,
+                UUID toId,
+                String body,
+                boolean read,
+                boolean wasToUserOffLine
+        ) {
             this.fromId = fromId;
             this.toId = toId;
             this.body = body;
+            this.read = read;
+            this.wasToUserOffline = wasToUserOffLine;
             timestamp = System.currentTimeMillis();
             attachments = new LinkedHashSet<>();
         }
 
-        public Message(UUID fromId, UUID toId, String body, LinkedHashSet<FileAttachment> fileAttachments) {
+        public Message(
+                UUID fromId,
+                UUID toId,
+                String body,
+                boolean read,
+                boolean wasToUserOffLine,
+                LinkedHashSet<FileAttachment> fileAttachments
+        ) {
             this.fromId = fromId;
             this.toId = toId;
             this.body = body;
+            this.read = read;
+            this.wasToUserOffline = wasToUserOffLine;
             timestamp = System.currentTimeMillis();
             attachments = fileAttachments;
         }

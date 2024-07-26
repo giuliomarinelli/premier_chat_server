@@ -80,6 +80,8 @@ public class AuthService {
 
             try {
                 User user = new User(
+                        userPostInputDto.firstName(),
+                        userPostInputDto.lastName(),
                         userPostInputDto.username(),
                         userPostInputDto.email(),
                         encoder.encode(userPostInputDto.password()),

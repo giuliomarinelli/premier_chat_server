@@ -35,6 +35,10 @@ public class User implements UserDetails {
     @Setter(AccessLevel.NONE)
     private UUID id;
 
+    private String firstName;
+
+    private String lastName;
+
     @Column(columnDefinition = "VARCHAR(30)", unique = true)
     private String username;
 
@@ -74,7 +78,16 @@ public class User implements UserDetails {
 
     private List<UserRole> roles = new ArrayList<>();
 
-    public User(String username, String email, String hashedPassword, String totpSecret, long msForActivation, String phoneNumber) {
+    public User(
+            String firstName,
+            String lastName,
+            String username,
+            String email,
+            String hashedPassword,
+            String totpSecret,
+            long msForActivation,
+            String phoneNumber
+    ) {
         this.username = username;
         this.hashedPassword = hashedPassword;
         this.email = email;

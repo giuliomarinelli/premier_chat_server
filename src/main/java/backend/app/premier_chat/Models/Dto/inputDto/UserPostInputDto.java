@@ -4,6 +4,12 @@ import jakarta.validation.constraints.NotBlank;
 
 public record UserPostInputDto(
 
+        @NotBlank(message = "'firstName' field is required")
+        String firstName,
+
+        @NotBlank(message = "'lastName' field is required")
+        String lastName,
+
         @NotBlank(message = "'username' field is required")
         String username,
 

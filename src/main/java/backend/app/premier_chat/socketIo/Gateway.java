@@ -51,6 +51,9 @@ public class Gateway {
         }
     };
 
+
+
+
 //    public DataListener<MessageDTO> onSendMessage = new DataListener<>() {
 //        @Override
 //        public void onData(SocketIOClient client, MessageDTO messageDTO, AckRequest acknowledge) throws Exception {
