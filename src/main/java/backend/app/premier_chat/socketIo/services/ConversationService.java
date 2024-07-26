@@ -95,7 +95,7 @@ public class ConversationService {
                             messageDto.fromId(),
                             messageDto.toId(),
                             messageDto.body(),
-                            sessionService.isUserOnLine(messageDto.toId())
+                            !sessionService.isUserOnLine(messageDto.toId())
                     );
 
                     Mono<Conversation> conversationMono;
