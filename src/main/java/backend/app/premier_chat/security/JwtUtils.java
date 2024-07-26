@@ -8,14 +8,18 @@ import backend.app.premier_chat.Models.entities.RevokedToken;
 import backend.app.premier_chat.Models.enums.AuthorizationStrategy;
 import backend.app.premier_chat.Models.enums.TokenPairType;
 import backend.app.premier_chat.Models.enums.TokenType;
+import backend.app.premier_chat.exception_handling.ForbiddenException;
 import backend.app.premier_chat.exception_handling.UnauthorizedException;
 import backend.app.premier_chat.repositories.jpa.RevokedTokenRepository;
+import backend.app.premier_chat.socketIo.SocketUtils;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.corundumstudio.socketio.HandshakeData;
+import com.corundumstudio.socketio.SocketIOClient;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.codec.binary.Base64;
@@ -57,6 +61,8 @@ public class JwtUtils {
 
     private final String jwtIssuer;
 
+    private final SocketUtils socketUtils;
+
     public JwtUtils(
             AccessTokenConfiguration accessTokenConfiguration,
             RefreshTokenConfiguration refreshTokenConfiguration,
@@ -68,7 +74,8 @@ public class JwtUtils {
             AuthorizationStrategyConfiguration authorizationStrategyConfiguration,
             PhoneNumberVerificationTokenConfiguration phoneNumberVerificationTokenConfiguration,
             EmailVerificationTokenConfiguration emailVerificationTokenConfiguration,
-            @Value("${spring.configuration.jwt.claims.iss}") String jwtIssuer
+            @Value("${spring.configuration.jwt.claims.iss}") String jwtIssuer,
+            SocketUtils socketUtils
     ) {
         this.accessTokenConfiguration = accessTokenConfiguration;
         this.refreshTokenConfiguration = refreshTokenConfiguration;
@@ -81,6 +88,7 @@ public class JwtUtils {
         this.phoneNumberVerificationTokenConfiguration = phoneNumberVerificationTokenConfiguration;
         this.emailVerificationTokenConfiguration = emailVerificationTokenConfiguration;
         this.jwtIssuer = jwtIssuer;
+        this.socketUtils = socketUtils;
     }
 
     private byte[] generateSecretKeyBytes(String base64Secret) {
@@ -214,15 +222,27 @@ public class JwtUtils {
 
     }
 
-    public TokenPair extractWsTokensFromContextCookies(ServerHttpRequest req) {
+    public TokenPair extractWsTokensFromContextCookies(HandshakeData handshakeData) {
 
-        TokenPair tokenPair = new TokenPair("", "", TokenPairType.WS);
-        Map<String, HttpCookie> cookies = req.getCookies().toSingleValueMap();
-        if (cookies.get("__ws_access_token") != null)
-            tokenPair.setAccessToken(cookies.get("__ws_access_token").getValue());
-        if (cookies.get("__ws_refresh_token") != null)
-            tokenPair.setRefreshToken(cookies.get("__ws_refresh_token").getValue());
-        return tokenPair;
+        Map<String, HttpCookie> cookies = socketUtils.parseCookies(handshakeData.getHttpHeaders().get("Cookie"));
+
+        if (cookies.get("__ws_access_token") == null || cookies.get("__ws_access_token").getValue().isBlank())
+            throw new ForbiddenException("You don't have the permissions to access this resource");
+
+        if (cookies.get("__ws_refresh_token") == null || cookies.get("__ws_refresh_token").getValue().isBlank())
+            throw new ForbiddenException("You don't have the permissions to access this resource");
+
+        return new TokenPair(
+                cookies.get("__ws_access_token").getValue(),
+                cookies.get("__ws_refresh_token").getValue(),
+                TokenPairType.WS
+        );
+
+    }
+
+    public TokenPair extractWsTokensFromContextCookies(SocketIOClient client) {
+
+        return extractWsTokensFromContextCookies(client.getHandshakeData());
 
     }
 

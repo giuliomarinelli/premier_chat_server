@@ -27,8 +27,11 @@ import java.time.ZoneOffset;
 @Configuration
 public class SecurityUtils {
 
-    @Autowired
-    private JotpConfiguration jotpConfiguration;
+    private final JotpConfiguration jotpConfiguration;
+
+    public SecurityUtils(JotpConfiguration jotpConfiguration) {
+        this.jotpConfiguration = jotpConfiguration;
+    }
 
     public String keyGenerator(int bytes, EncodeType encodeType) {
 
