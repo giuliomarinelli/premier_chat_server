@@ -7,17 +7,18 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
-
+// Da converire in forma soft-coded
 @CrossOrigin(origins = {"http://localhost:4200", "http://localhost:4000"})
 @Component
 @org.springframework.context.annotation.Configuration
-//@Log4j2
+@Log4j2
 public class Config {
 
     @Autowired
