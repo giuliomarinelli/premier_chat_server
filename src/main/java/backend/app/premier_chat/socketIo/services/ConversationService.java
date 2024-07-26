@@ -1,5 +1,6 @@
 package backend.app.premier_chat.socketIo.services;
 
+import backend.app.premier_chat.Models.Dto.inputDto.ConversationMessageDto;
 import backend.app.premier_chat.Models.entities.User;
 import backend.app.premier_chat.Models.mongo_db_documents.Conversation;
 import backend.app.premier_chat.exception_handling.BadRequestException;
@@ -20,12 +21,20 @@ public class ConversationService {
 
     private final UserRepository userRepository;
 
+    private final SessionService sessionService;
+
+    private final ClientService clientService;
+
     public ConversationService(
             ConversationRepository conversationRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            SessionService sessionService,
+            ClientService clientService
     ) {
         this.conversationRepository = conversationRepository;
         this.userRepository = userRepository;
+        this.sessionService = sessionService;
+        this.clientService = clientService;
     }
 
     public Mono<Boolean> isThereAConversationBetweenTwoUsers(UUID userId1, UUID userId2) {
@@ -74,6 +83,22 @@ public class ConversationService {
             return Mono.just(conversation);
 
         });
+
+    }
+
+    public Mono<Void> sendConversationMessage(ConversationMessageDto messageDto) {
+
+        isThereAConversationBetweenTwoUsers(messageDto.fromId(), messageDto.toId())
+                .map(isThere -> {
+                    if (isThere) {
+                        Mono<Conversation> monoConversation = conversationRepository.findByParticipantsExactly(messageDto.fromId(), messageDto.toId());
+                        monoConversation.flatMap(conversation -> {
+
+
+
+                        });
+                    }
+                });
 
     }
 

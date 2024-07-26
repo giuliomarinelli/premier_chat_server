@@ -1,17 +1,21 @@
 package backend.app.premier_chat.socketIo;
 
+import backend.app.premier_chat.Models.Dto.inputDto.ConversationMessageDto;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.security.JwtUtils;
 import backend.app.premier_chat.socketIo.services.ClientService;
 import backend.app.premier_chat.socketIo.services.SessionService;
+import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
+import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
+import java.util.EventListener;
 import java.util.UUID;
 
 
@@ -40,6 +44,7 @@ public class Gateway {
         this.clientService = clientService;
         this.socketServer.addConnectListener(onUserConnectWithSocket);
         this.socketServer.addDisconnectListener(onUserDisconnectWithSocket);
+        this.socketServer.addEventListener("sendMessage", ConversationMessageDto.class, onSendConversationMessage);
 
 //        this.socketServer.addEventListener("messageSendToUser", MessageDTO.class, onSendMessage);
 
@@ -69,6 +74,18 @@ public class Gateway {
     };
 
 
+    public DataListener<ConversationMessageDto> onSendConversationMessage = new DataListener<>() {
+
+        @Override
+        public void onData(SocketIOClient socketIOClient, ConversationMessageDto messageDto, AckRequest ackRequest) throws Exception {
+
+
+
+        }
+
+    };
+
+}
 
 
 //    public DataListener<MessageDTO> onSendMessage = new DataListener<>() {
