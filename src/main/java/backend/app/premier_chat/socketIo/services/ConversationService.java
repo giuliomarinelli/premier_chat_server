@@ -89,42 +89,37 @@ public class ConversationService {
     }
 
     public Mono<Void> sendConversationMessage(ConversationMessageDto messageDto) {
-
-        isThereAConversationBetweenTwoUsers(messageDto.fromId(), messageDto.toId())
-                .map(isThere -> {
+        return isThereAConversationBetweenTwoUsers(messageDto.fromId(), messageDto.toId())
+                .flatMap(isThere -> {
                     Conversation.Message message = new Conversation.Message(
                             messageDto.fromId(),
                             messageDto.toId(),
                             messageDto.body(),
                             sessionService.isUserOnLine(messageDto.toId())
                     );
+
+                    Mono<Conversation> conversationMono;
+
                     if (isThere) {
-                        return conversationRepository.findByParticipantsExactly(messageDto.fromId(), messageDto.toId())
-                                .flatMap(conversation -> {
-                                    conversation.getMessages().add(message);
-                                    conversationRepository.save(conversation);
-                                    return Mono.empty();
-                                });
+                        conversationMono = conversationRepository.findByParticipantsExactly(messageDto.fromId(), messageDto.toId());
                     } else {
-
-                        createConversation(messageDto.fromId(), messageDto.toId()).flatMap(conversation -> {
-                            conversation.getMessages().add(message);
-                            conversationRepository.save(conversation);
-                            return Mono.empty();
-                        });
-
+                        conversationMono = createConversation(messageDto.fromId(), messageDto.toId());
                     }
-                    if (sessionService.isUserOnLine(messageDto.toId())) {
-                        Set<UUID> sessionIds = sessionService.getSessionIdsFromUserId(messageDto.toId());
-                        for (UUID sessionId : sessionIds) {
-                            SocketIOClient client = clientService.get(sessionId);
-                            client.sendEvent("message", message);
-                        }
-                    }
-                    return Mono.empty();
 
+                    return conversationMono.flatMap(conversation -> {
+                        conversation.getMessages().add(message);
+                        return conversationRepository.save(conversation)
+                                .then(Mono.fromRunnable(() -> {
+                                    if (sessionService.isUserOnLine(messageDto.toId())) {
+                                        Set<UUID> sessionIds = sessionService.getSessionIdsFromUserId(messageDto.toId());
+                                        for (UUID sessionId : sessionIds) {
+                                            SocketIOClient client = clientService.get(sessionId);
+                                            client.sendEvent("message", message);
+                                        }
+                                    }
+                                }));
+                    });
                 });
-        return Mono.empty();
     }
 
 }
