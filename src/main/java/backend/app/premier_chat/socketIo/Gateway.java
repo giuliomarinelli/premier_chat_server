@@ -4,6 +4,7 @@ import backend.app.premier_chat.Models.Dto.inputDto.ConversationMessageDto;
 import backend.app.premier_chat.Models.enums.TokenType;
 import backend.app.premier_chat.security.JwtUtils;
 import backend.app.premier_chat.socketIo.services.ClientService;
+import backend.app.premier_chat.socketIo.services.ConversationService;
 import backend.app.premier_chat.socketIo.services.SessionService;
 import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.SocketIOClient;
@@ -14,8 +15,10 @@ import com.corundumstudio.socketio.listener.DisconnectListener;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import reactor.core.publisher.Mono;
 
 import java.util.EventListener;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -32,16 +35,24 @@ public class Gateway {
 
     private final ClientService clientService;
 
+    private final SocketUtils socketUtils;
+
+    private final ConversationService conversationService;
+
     Gateway(
             JwtUtils jwtUtils,
             SocketIOServer socketServer,
             SessionService sessionService,
-            ClientService clientService
+            ClientService clientService,
+            SocketUtils socketUtils,
+            ConversationService conversationService
     ) {
         this.jwtUtils = jwtUtils;
         this.socketServer = socketServer;
         this.sessionService = sessionService;
         this.clientService = clientService;
+        this.socketUtils = socketUtils;
+        this.conversationService = conversationService;
         this.socketServer.addConnectListener(onUserConnectWithSocket);
         this.socketServer.addDisconnectListener(onUserDisconnectWithSocket);
         this.socketServer.addEventListener("sendMessage", ConversationMessageDto.class, onSendConversationMessage);
@@ -77,13 +88,22 @@ public class Gateway {
     public DataListener<ConversationMessageDto> onSendConversationMessage = new DataListener<>() {
 
         @Override
-        public void onData(SocketIOClient socketIOClient, ConversationMessageDto messageDto, AckRequest ackRequest) throws Exception {
+        public void onData(SocketIOClient client, ConversationMessageDto messageDto, AckRequest ack) throws Exception {
 
+            Optional<UUID> userIdOpt = socketUtils.findUserIdFromClient(client);
 
+            if (userIdOpt.isEmpty()) {
+                client.sendEvent("error", "Forbidden");
+                client.disconnect();
+            }
 
-        }
+            assert userIdOpt.isPresent();
+            conversationService.sendConversationMessage(messageDto, userIdOpt.get())
+                    .then(Mono.fromRunnable(() -> ack.sendAckData("Message sent successfully")));
 
-    };
+    }
+
+};
 
 }
 

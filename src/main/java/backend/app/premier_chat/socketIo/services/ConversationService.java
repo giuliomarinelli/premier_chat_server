@@ -50,8 +50,8 @@ public class ConversationService {
     public Mono<Conversation> findConversationBetweenTwoUsers(UUID userId1, UUID userId2) {
 
         return isThereAConversationBetweenTwoUsers(userId1, userId2)
-                .flatMap(value -> {
-                    if (!value) throw new NotFoundException("Conversation not found");
+                .flatMap(exists -> {
+                    if (!exists) throw new NotFoundException("Conversation not found");
                     return conversationRepository.findByParticipantsExactly(userId1, userId2);
                 });
 
@@ -69,30 +69,32 @@ public class ConversationService {
 
     public Mono<Conversation> createConversation(UUID userId1, UUID userId2) {
 
-        return isThereAConversationBetweenTwoUsers(userId1, userId2).flatMap(value -> {
+        return isThereAConversationBetweenTwoUsers(userId1, userId2).flatMap(exists -> {
 
-            if (value)
+            if (exists)
                 throw new BadRequestException("Conversation with users with id " + userId1 +
                         " and " + userId2 + " already exists");
 
-            Conversation.Participant participant1 = createParticipant(userId1);
-            Conversation.Participant participant2 = createParticipant(userId2);
+            Mono<Conversation.Participant> participantMono1 = createParticipant(userId1);
+            Mono<Conversation.Participant> participantMono2 = createParticipant(userId2);
 
-            Conversation conversation = new Conversation(List.of(participant1, participant2));
+            return Mono.zip(participantMono1, participantMono2)
+                    .flatMap(tuple -> {
 
-            conversationRepository.save(conversation);
+                        Conversation conversation = new Conversation(List.of(tuple.getT1(), tuple.getT2()));
 
-            return Mono.just(conversation);
+                        return conversationRepository.save(conversation).thenReturn(conversation);
 
+                    });
         });
 
     }
 
-    public Mono<Void> sendConversationMessage(ConversationMessageDto messageDto) {
-        return isThereAConversationBetweenTwoUsers(messageDto.fromId(), messageDto.toId())
+    public Mono<Void> sendConversationMessage(ConversationMessageDto messageDto, UUID fromId) {
+        return isThereAConversationBetweenTwoUsers(fromId, messageDto.toId())
                 .flatMap(isThere -> {
                     Conversation.Message message = new Conversation.Message(
-                            messageDto.fromId(),
+                            fromId,
                             messageDto.toId(),
                             messageDto.body(),
                             !sessionService.isUserOnLine(messageDto.toId())
@@ -101,9 +103,9 @@ public class ConversationService {
                     Mono<Conversation> conversationMono;
 
                     if (isThere) {
-                        conversationMono = conversationRepository.findByParticipantsExactly(messageDto.fromId(), messageDto.toId());
+                        conversationMono = conversationRepository.findByParticipantsExactly(fromId, messageDto.toId());
                     } else {
-                        conversationMono = createConversation(messageDto.fromId(), messageDto.toId());
+                        conversationMono = createConversation(fromId, messageDto.toId());
                     }
 
                     return conversationMono.flatMap(conversation -> {
