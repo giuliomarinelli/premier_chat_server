@@ -3,9 +3,6 @@ package backend.app.premier_chat.Models.mongo_db_documents;
 import jakarta.persistence.Id;
 import lombok.*;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.Field;
-
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
@@ -19,16 +16,15 @@ public class Conversation {
     @Setter(AccessLevel.NONE)
     private String _id;
 
-    @Field
     @Setter(AccessLevel.NONE)
     private List<Participant> participants;
 
-    @Field
+    @Setter(AccessLevel.NONE)
     private List<Message> messages;
 
     public Conversation(List<Participant> participants) {
         if (participants.size() != 2)
-            throw new IllegalArgumentException("Conversation Partecipants list must contain exactly 2 participants");
+            throw new IllegalArgumentException("Conversation partecipants list must contain exactly 2 participants");
         this.participants = participants;
     }
 

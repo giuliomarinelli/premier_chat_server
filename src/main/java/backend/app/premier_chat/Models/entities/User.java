@@ -1,7 +1,9 @@
 package backend.app.premier_chat.Models.entities;
 
+import backend.app.premier_chat.Models.enums.Gender;
 import backend.app.premier_chat.Models.enums.UserRole;
 import backend.app.premier_chat.Models.enums._2FAStrategy;
+import backend.app.premier_chat.exception_handling.BadRequestException;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -38,6 +40,11 @@ public class User implements UserDetails {
     private String firstName;
 
     private String lastName;
+
+    private long dateOfBirth;
+
+    @Enumerated(EnumType.STRING)
+    private Gender gender;
 
     @Column(columnDefinition = "VARCHAR(30)", unique = true)
     private String username;
@@ -81,6 +88,8 @@ public class User implements UserDetails {
     public User(
             String firstName,
             String lastName,
+            long dateOfBirth,
+            String gender,
             String username,
             String email,
             String hashedPassword,
@@ -88,6 +97,14 @@ public class User implements UserDetails {
             long msForActivation,
             String phoneNumber
     ) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.dateOfBirth = dateOfBirth;
+        try {
+            this.gender = Gender.valueOf(gender);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed 'gender' field");
+        }
         this.username = username;
         this.hashedPassword = hashedPassword;
         this.email = email;

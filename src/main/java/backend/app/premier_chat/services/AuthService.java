@@ -82,6 +82,8 @@ public class AuthService {
                 User user = new User(
                         userPostInputDto.firstName(),
                         userPostInputDto.lastName(),
+                        userPostInputDto.dateOfBirth(),
+                        userPostInputDto.gender(),
                         userPostInputDto.username(),
                         userPostInputDto.email(),
                         encoder.encode(userPostInputDto.password()),

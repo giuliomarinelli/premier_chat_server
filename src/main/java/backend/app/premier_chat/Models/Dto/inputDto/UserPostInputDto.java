@@ -1,6 +1,8 @@
 package backend.app.premier_chat.Models.Dto.inputDto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 public record UserPostInputDto(
 
@@ -9,6 +11,13 @@ public record UserPostInputDto(
 
         @NotBlank(message = "'lastName' field is required")
         String lastName,
+
+        @NotNull(message = "'dateOfBirth' field is required")
+        Long dateOfBirth,
+
+        @NotBlank(message = "'lastName' field is required")
+        @Pattern(regexp = "^([A-Za-z]+)(_)?([A-Za-z])?$", message = "Malformed 'gender' field")
+        String gender,
 
         @NotBlank(message = "'username' field is required")
         String username,
@@ -19,8 +28,7 @@ public record UserPostInputDto(
         @NotBlank(message = "'password' field is required")
         String password,
 
-        @NotBlank(message = "'phoneNumber' field is required")
+        @Pattern(regexp = "^(\\+\\d+)?$", message = "'phoneNumber' field is malformed")
         String phoneNumber
         // VALIDAZIONE DEI PATTERN
-) {
-}
+) {}

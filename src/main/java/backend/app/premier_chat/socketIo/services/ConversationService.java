@@ -57,13 +57,13 @@ public class ConversationService {
 
     }
 
-    public Conversation.Participant createParticipant(UUID userId) {
+    public Mono<Conversation.Participant> createParticipant(UUID userId) {
 
         User user = userRepository.findValidEnabledUserById(userId).orElseThrow(
                 () -> new NotFoundException("User with id = " + userId + " not found")
         );
 
-        return new Conversation.Participant(userId, user.getUsername(), user.getFirstName(), user.getLastName());
+        return Mono.just(new Conversation.Participant(userId, user.getUsername(), user.getFirstName(), user.getLastName()));
 
     }
 
