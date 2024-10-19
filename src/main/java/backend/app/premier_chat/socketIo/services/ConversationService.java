@@ -8,6 +8,7 @@ import backend.app.premier_chat.exception_handling.NotFoundException;
 import backend.app.premier_chat.repositories.jpa.UserRepository;
 import backend.app.premier_chat.repositories.mongo_db.ConversationRepository;
 import com.corundumstudio.socketio.SocketIOClient;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 
 @Service
+@Log4j2
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
@@ -93,12 +95,17 @@ public class ConversationService {
     public Mono<Void> sendConversationMessage(ConversationMessageDto messageDto, UUID fromId) {
         return isThereAConversationBetweenTwoUsers(fromId, messageDto.toId())
                 .flatMap(isThere -> {
+
+                    log.info(isThere);
+
                     Conversation.Message message = new Conversation.Message(
                             fromId,
                             messageDto.toId(),
                             messageDto.body(),
                             !sessionService.isUserOnLine(messageDto.toId())
                     );
+
+                    log.info(message);
 
                     Mono<Conversation> conversationMono;
 

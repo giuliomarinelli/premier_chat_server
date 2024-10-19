@@ -95,17 +95,24 @@ public class Gateway {
             if (userIdOpt.isEmpty()) {
                 client.sendEvent("error", "Forbidden");
                 client.disconnect();
+                return;
             }
 
-            assert userIdOpt.isPresent();
-            conversationService.sendConversationMessage(messageDto, userIdOpt.get())
-                    .then(Mono.fromRunnable(() -> ack.sendAckData("Message sent successfully")));
+            UUID userId = userIdOpt.get();
 
-    }
+            conversationService.sendConversationMessage(messageDto, userId)
+                    .doOnSuccess(aVoid -> ack.sendAckData("Message sent successfully"))
+                    .doOnError(throwable -> {
+                        client.sendEvent("error", "Message sending failed");
+                        throwable.printStackTrace(); // Log the error
+                    })
+                    .subscribe(); // Subscribe to start the process
+        }
+    };
 
 };
 
-}
+
 
 
 //    public DataListener<MessageDTO> onSendMessage = new DataListener<>() {
